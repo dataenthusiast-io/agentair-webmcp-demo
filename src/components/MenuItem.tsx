@@ -1,23 +1,29 @@
 import { Plus } from 'lucide-react'
 import type { MenuItem as MenuItemType } from '../lib/menu'
-import { addToCart } from '../lib/cart'
+import { useStore } from '../lib/store'
 
 export default function MenuItem({ item }: { item: MenuItemType }) {
+  const addToCart = useStore((s) => s.addToCart)
+
   return (
-    <div className="bg-green-900/50 border border-green-700 rounded-xl p-5 hover:border-green-500 transition-all duration-200 hover:shadow-md hover:shadow-green-900/30">
+    <div className="bg-amber-100 border-4 border-black p-4 shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[6px_6px_0_0_rgba(0,0,0,1)] hover:-translate-y-0.5 transition-all duration-100">
       <div className="flex justify-between items-start mb-2">
-        <h3 className="text-lg font-semibold text-green-100">{item.name}</h3>
-        <span className="text-lg font-bold text-green-400">
+        <h3 className="text-xs font-bold text-black uppercase leading-relaxed">
+          {item.name}
+        </h3>
+        <span className="text-xs font-bold text-red-700 ml-2 whitespace-nowrap">
           ${item.price.toFixed(2)}
         </span>
       </div>
-      <p className="text-green-300 text-sm mb-4">{item.description}</p>
+      <p className="text-[10px] text-gray-700 mb-4 leading-relaxed">
+        {item.description}
+      </p>
       <button
         onClick={() => addToCart(item)}
-        className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 text-white font-medium rounded-lg transition-colors text-sm cursor-pointer"
+        className="pixel-bounce flex items-center gap-2 px-3 py-2 bg-green-500 hover:bg-green-400 text-black text-[10px] font-bold border-3 border-black shadow-[3px_3px_0_0_rgba(0,0,0,1)] active:shadow-none active:translate-x-[3px] active:translate-y-[3px] transition-all duration-75 cursor-pointer uppercase"
       >
-        <Plus size={16} />
-        Add to Cart
+        <Plus size={14} strokeWidth={3} />
+        Add
       </button>
     </div>
   )

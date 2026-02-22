@@ -23,20 +23,22 @@ export default function WebMCPStatus() {
   }, [])
 
   return (
-    <div className="fixed bottom-0 inset-x-0 bg-slate-900 text-white px-4 py-2 flex items-center gap-3 text-sm z-50">
-      <Cpu size={16} className="text-amber-400" />
-      <span className="font-medium">WebMCP</span>
+    <div className="fixed bottom-0 inset-x-0 bg-black text-green-400 px-4 py-2 flex items-center gap-3 text-[10px] z-50 border-t-4 border-green-500">
+      <Cpu size={14} className="text-green-400" />
+      <span className="font-bold uppercase">WebMCP</span>
       {status === 'loading' && (
-        <span className="text-slate-400">Registering tools...</span>
+        <span className="text-green-600">
+          Loading tools<span className="pixel-blink">_</span>
+        </span>
       )}
       {status === 'ready' && (
-        <span className="text-emerald-400">
-          {toolCount} tools registered
+        <span className="text-green-400">
+          &gt; {toolCount} tools registered [OK]
         </span>
       )}
       {status === 'error' && (
-        <span className="text-red-400" title={errorMsg}>
-          Error registering tools
+        <span className="text-red-500" title={errorMsg}>
+          &gt; ERR: registration failed
         </span>
       )}
     </div>

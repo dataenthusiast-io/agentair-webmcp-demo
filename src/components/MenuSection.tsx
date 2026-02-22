@@ -10,8 +10,10 @@ export default function MenuSection({
 }) {
   return (
     <section className="mb-8">
-      <h2 className="text-2xl font-bold text-green-100 mb-4">{title}</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <h2 className="text-sm font-bold text-yellow-300 mb-4 uppercase tracking-wide border-b-4 border-yellow-300 pb-2 inline-block">
+        {title}
+      </h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-3">
         {items.map((item) => (
           <MenuItem key={item.id} item={item} />
         ))}
