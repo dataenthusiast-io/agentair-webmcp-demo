@@ -2,7 +2,6 @@ import type { InputSchema } from "@mcp-b/global";
 import { z } from "zod";
 import { useStore } from "./store";
 
-// JSON Schema for MCP proxy compatibility (must have type: "object")
 const getMenuSchema = {
   type: "object" as const,
   properties: {
