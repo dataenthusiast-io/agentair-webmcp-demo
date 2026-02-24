@@ -3,42 +3,53 @@ import { z } from "zod";
 import { pushDataLayerEvent } from "./analytics";
 import { useStore } from "./store";
 
-const getMenuSchema = {
+const searchFlightsSchema = {
   type: "object" as const,
   properties: {
-    category: {
+    from: {
       type: "string" as const,
-      enum: ["cheesesteaks", "sides", "drinks"],
-      description: "Optional category to filter by",
+      description: "Departure airport code or city (e.g. 'JFK' or 'New York')",
+    },
+    to: {
+      type: "string" as const,
+      description: "Arrival airport code or city (e.g. 'LAX' or 'Los Angeles')",
     },
   },
 };
 
-const addToCartSchema = {
+const addToBookingSchema = {
   type: "object" as const,
   properties: {
-    item_id: { type: "string" as const, description: "Menu item ID" },
-    quantity: {
+    flight_id: {
+      type: "string" as const,
+      description: "Flight ID (e.g. 'AA101')",
+    },
+    class_id: {
+      type: "string" as const,
+      description: "Class ID (e.g. 'AA101-ECO', 'AA101-BIZ', 'AA101-FIRST')",
+    },
+    passengers: {
       type: "number" as const,
-      description: "Quantity to add (default 1)",
+      description: "Number of passengers (default 1)",
     },
   },
-  required: ["item_id"],
+  required: ["flight_id", "class_id"],
 };
 
-const getCartSchema = {
+const getBookingSchema = {
   type: "object" as const,
   properties: {},
 };
 
-// Zod schemas for parsing and typing in execute
-const getMenuParams = z.object({
-  category: z.enum(["cheesesteaks", "sides", "drinks"]).optional(),
+const searchFlightsParams = z.object({
+  from: z.string().optional(),
+  to: z.string().optional(),
 });
 
-const addToCartParams = z.object({
-  item_id: z.string(),
-  quantity: z.number().optional(),
+const addToBookingParams = z.object({
+  flight_id: z.string(),
+  class_id: z.string(),
+  passengers: z.number().optional(),
 });
 
 export async function registerWebMCPTools() {
@@ -46,58 +57,95 @@ export async function registerWebMCPTools() {
   if (!mc) throw new Error("navigator.modelContext not available");
 
   mc.registerTool({
-    name: "get_menu",
+    name: "search_flights",
     description:
-      "Get the cheesesteak shop menu. Optionally filter by category: 'cheesesteaks', 'sides', or 'drinks'.",
-    inputSchema: getMenuSchema as InputSchema,
+      "Search for available AgentAir flights. Optionally filter by departure (from) and arrival (to) airport code or city. Returns available flights with their booking classes and prices.",
+    inputSchema: searchFlightsSchema as InputSchema,
     execute: async (params) => {
-      const { category } = getMenuParams.parse(params);
-      const items = useStore.getState().getMenuByCategory(category);
+      const { from, to } = searchFlightsParams.parse(params);
+      const state = useStore.getState();
+      const results = state.searchFlights(from, to);
+
+      // Expand search results on the page and record agent activity
+      state.setHasSearched(true);
+      state.addAgentActivity({
+        tool: "search_flights",
+        message: "Agent searched for flights",
+        detail: `${from?.toUpperCase() ?? "Any"} → ${to?.toUpperCase() ?? "Any"} · ${results.length} flight${results.length !== 1 ? "s" : ""} found`,
+      });
+
       pushDataLayerEvent("webmcp_tool_used", {
-        tool_name: "get_menu",
-        ...(category !== undefined && { category }),
+        tool_name: "search_flights",
+        ...(from !== undefined && { from }),
+        ...(to !== undefined && { to }),
+        results_count: results.length,
         interaction_source: "webmcp",
       });
       return {
         content: [
-          { type: "text" as const, text: JSON.stringify(items, null, 2) },
+          { type: "text" as const, text: JSON.stringify(results, null, 2) },
         ],
       };
     },
   });
 
   mc.registerTool({
-    name: "add_to_cart",
+    name: "add_to_booking",
     description:
-      'Add an item to the cart by menu item ID (e.g. "classic-whiz", "fries"). Quantity defaults to 1.',
-    inputSchema: addToCartSchema as InputSchema,
+      "Add a flight class to the current booking by flight ID and class ID. Use search_flights first to discover available flight and class IDs.",
+    inputSchema: addToBookingSchema as InputSchema,
     execute: async (params) => {
-      const { item_id, quantity = 1 } = addToCartParams.parse(params);
+      const { flight_id, class_id, passengers = 1 } =
+        addToBookingParams.parse(params);
       const state = useStore.getState();
-      const item = state.menu.find((i) => i.id === item_id);
-      if (!item) {
+      const flight = state.flights.find((f) => f.id === flight_id);
+      if (!flight) {
         return {
           content: [
             {
               type: "text" as const,
-              text: JSON.stringify({ error: `Item "${item_id}" not found` }),
+              text: JSON.stringify({ error: `Flight "${flight_id}" not found` }),
             },
           ],
           isError: true,
         };
       }
-      state.addToCart(item, quantity);
+      const flightClass = flight.classes.find((c) => c.id === class_id);
+      if (!flightClass) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                error: `Class "${class_id}" not found on flight "${flight_id}"`,
+                available_classes: flight.classes.map((c) => c.id),
+              }),
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      // Add to booking (marked as agent-added) and show on page
+      state.setHasSearched(true);
+      state.addToBooking(flight_id, class_id, passengers, true);
+      state.addAgentActivity({
+        tool: "add_to_booking",
+        message: "Agent added flight to booking",
+        detail: `${flight.fromCode} → ${flight.toCode} · ${flightClass.name} · $${flightClass.price.toLocaleString()} · ${passengers} pax`,
+      });
+
       pushDataLayerEvent("add_to_cart", {
         ecommerce: {
           currency: "USD",
-          value: item.price * quantity,
+          value: flightClass.price * passengers,
           items: [
             {
-              item_id: item.id,
-              item_name: item.name,
-              price: item.price,
-              quantity,
-              item_category: item.category,
+              item_id: class_id,
+              item_name: `${flight.fromCode} → ${flight.toCode} · ${flightClass.name}`,
+              price: flightClass.price,
+              quantity: passengers,
+              item_category: flightClass.name,
             },
           ],
         },
@@ -107,7 +155,16 @@ export async function registerWebMCPTools() {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify({ success: true, added: item.name, quantity }),
+            text: JSON.stringify({
+              success: true,
+              added: {
+                flight: `${flight.fromCode} → ${flight.toCode}`,
+                class: flightClass.name,
+                price: flightClass.price,
+                passengers,
+                total: flightClass.price * passengers,
+              },
+            }),
           },
         ],
       };
@@ -115,29 +172,48 @@ export async function registerWebMCPTools() {
   });
 
   mc.registerTool({
-    name: "get_cart",
-    description: "Get the current cart contents and total price.",
-    inputSchema: getCartSchema as InputSchema,
+    name: "get_booking",
+    description:
+      "Get the current booking summary including all selected flights, classes, and the total price.",
+    inputSchema: getBookingSchema as InputSchema,
     execute: async () => {
       const state = useStore.getState();
-      const items = state.items.map((i) => ({
-        id: i.menuItem.id,
-        name: i.menuItem.name,
-        price: i.menuItem.price,
-        quantity: i.quantity,
-        subtotal: i.menuItem.price * i.quantity,
+      const summary = state.items.map((i) => ({
+        flight_id: i.flight.id,
+        route: `${i.flight.fromCode} → ${i.flight.toCode}`,
+        departure: i.flight.departure,
+        arrival: i.flight.arrival,
+        class: i.flightClass.name,
+        class_id: i.flightClass.id,
+        price_per_passenger: i.flightClass.price,
+        passengers: i.passengers,
+        subtotal: i.flightClass.price * i.passengers,
       }));
+
+      state.addAgentActivity({
+        tool: "get_booking",
+        message: "Agent reviewed booking",
+        detail:
+          state.getItemCount() === 0
+            ? "Booking is empty"
+            : `${state.getItemCount()} item${state.getItemCount() !== 1 ? "s" : ""} · Total $${state.getTotal().toLocaleString()}`,
+      });
+
       pushDataLayerEvent("webmcp_tool_used", {
-        tool_name: "get_cart",
+        tool_name: "get_booking",
         interaction_source: "webmcp",
-        cart_value: state.getTotal(),
+        booking_value: state.getTotal(),
         item_count: state.getItemCount(),
       });
       return {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify({ items, total: state.getTotal() }, null, 2),
+            text: JSON.stringify(
+              { items: summary, total: state.getTotal() },
+              null,
+              2
+            ),
           },
         ],
       };

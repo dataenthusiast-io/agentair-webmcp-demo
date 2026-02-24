@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Cpu } from 'lucide-react'
+import { Bot } from 'lucide-react'
 
 export default function WebMCPStatus() {
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(
-    'loading',
-  )
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [toolCount, setToolCount] = useState(0)
   const [errorMsg, setErrorMsg] = useState('')
 
@@ -23,22 +21,23 @@ export default function WebMCPStatus() {
   }, [])
 
   return (
-    <div className="fixed bottom-0 inset-x-0 bg-black text-green-400 px-4 py-2 flex items-center gap-3 text-[10px] z-50 border-t-4 border-green-500">
-      <Cpu size={14} className="text-green-400" />
-      <span className="font-bold uppercase">WebMCP</span>
+    <div className="fixed bottom-0 inset-x-0 bg-slate-950 text-slate-400 px-4 py-2 flex items-center gap-3 text-[11px] z-50 border-t border-slate-800">
+      <Bot size={13} className={status === 'ready' ? 'text-emerald-400' : status === 'error' ? 'text-red-400' : 'text-slate-500'} />
+      <span className="font-semibold text-slate-300 uppercase tracking-wider text-[10px]">WebMCP</span>
+      <span className="text-slate-700">·</span>
       {status === 'loading' && (
-        <span className="text-green-600">
-          Loading tools<span className="pixel-blink">_</span>
+        <span className="text-slate-500">
+          Registering agent tools<span className="animate-pulse">…</span>
         </span>
       )}
       {status === 'ready' && (
-        <span className="text-green-400">
-          &gt; {toolCount} tools registered [OK]
+        <span className="text-emerald-400">
+          {toolCount} tools active — AI agents can now book flights natively
         </span>
       )}
       {status === 'error' && (
-        <span className="text-red-500" title={errorMsg}>
-          &gt; ERR: registration failed
+        <span className="text-red-400" title={errorMsg}>
+          Tool registration failed
         </span>
       )}
     </div>

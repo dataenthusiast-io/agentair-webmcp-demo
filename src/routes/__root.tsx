@@ -11,13 +11,13 @@ function NotFound() {
     <main className="mx-auto max-w-2xl px-4 py-16 text-center">
       <h1 className="text-2xl font-bold text-gray-900">Page not found</h1>
       <p className="mt-2 text-gray-600">
-        This route doesn't exist. Head back to the menu to order.
+        This route doesn't exist.
       </p>
       <a
         href="/"
-        className="mt-6 inline-block rounded bg-amber-600 px-4 py-2 text-white hover:bg-amber-700"
+        className="mt-6 inline-block rounded-xl bg-blue-600 px-5 py-2.5 text-white font-medium hover:bg-blue-500 transition-colors"
       >
-        Back to menu
+        Back to AgentAir
       </a>
     </main>
   )
@@ -35,10 +35,23 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: "Philly's Finest Cheesesteaks",
+        title: 'AgentAir — The AI-Native Airline',
       },
     ],
     links: [
+      {
+        rel: 'preconnect',
+        href: 'https://fonts.googleapis.com',
+      },
+      {
+        rel: 'preconnect',
+        href: 'https://fonts.gstatic.com',
+        crossOrigin: 'anonymous',
+      },
+      {
+        rel: 'stylesheet',
+        href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap',
+      },
       {
         rel: 'stylesheet',
         href: appCss,
