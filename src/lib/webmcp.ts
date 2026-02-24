@@ -292,6 +292,13 @@ export async function registerWebMCPTools() {
         autoSubmit: allProvided,
       });
       state.setCheckoutOpen(true);
+      state.addAgentActivity({
+        tool: "checkout",
+        message: allProvided ? "Agent is completing payment" : "Agent opened checkout",
+        detail: allProvided
+          ? `${passenger_name} · $${state.getTotal().toLocaleString()} · submitting…`
+          : `Pre-filled ${[passenger_name, email].filter(Boolean).join(", ")}`,
+      });
 
       pushDataLayerEvent("webmcp_tool_used", {
         tool_name: "checkout",
@@ -391,6 +398,11 @@ export async function registerWebMCPTools() {
         state.selectSeat(class_id, selected);
       }
       state.setSeatMapOpen(class_id);
+      state.addAgentActivity({
+        tool: "select_seat",
+        message: "Agent selected a seat",
+        detail: `Seat ${selected.label} · ${selected.type} · ${flight.fromCode} → ${flight.toCode} ${flightClass.name}`,
+      });
 
       pushDataLayerEvent("seat_selected", {
         seat_label: selected.label,

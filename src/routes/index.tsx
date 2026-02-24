@@ -7,6 +7,7 @@ import { flights } from '../lib/flights'
 import FlightCard from '../components/FlightCard'
 import BookingSidebar from '../components/Cart'
 import WebMCPStatus from '../components/WebMCPStatus'
+import AgentActivityFeed from '../components/AgentActivityFeed'
 
 export const Route = createFileRoute('/')({ component: App })
 
@@ -206,6 +207,7 @@ function App() {
       )}
 
       <WebMCPStatus />
+      <AgentActivityFeed />
     </div>
   )
 }
