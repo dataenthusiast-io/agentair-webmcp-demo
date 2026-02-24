@@ -221,6 +221,102 @@ export async function registerWebMCPTools() {
     },
   });
 
+  const checkoutSchema = {
+    type: "object" as const,
+    properties: {
+      passenger_name: {
+        type: "string" as const,
+        description: "Passenger full name",
+      },
+      email: {
+        type: "string" as const,
+        description: "Passenger contact email",
+      },
+      card_number: {
+        type: "string" as const,
+        description: "Credit/debit card number (digits only, e.g. '4111111111111111'). Use dummy values for demos.",
+      },
+      expiry: {
+        type: "string" as const,
+        description: "Card expiry date in MM/YY format (e.g. '12/28')",
+      },
+      cvv: {
+        type: "string" as const,
+        description: "Card CVV (3-4 digits, e.g. '123')",
+      },
+    },
+  };
+
+  const checkoutParams = z.object({
+    passenger_name: z.string().optional(),
+    email: z.string().optional(),
+    card_number: z.string().optional(),
+    expiry: z.string().optional(),
+    cvv: z.string().optional(),
+  });
+
+  mc.registerTool({
+    name: "checkout",
+    description:
+      "Open the checkout form and optionally complete the booking end-to-end. If all fields (passenger_name, email, card_number, expiry, cvv) are provided, the form is filled and submitted automatically. If only some fields are provided, the form opens pre-filled for the user to complete. Use dummy card values for demos (e.g. card_number: '4111111111111111', expiry: '12/28', cvv: '123').",
+    inputSchema: checkoutSchema as InputSchema,
+    execute: async (params) => {
+      const { passenger_name, email, card_number, expiry, cvv } = checkoutParams.parse(params);
+      const state = useStore.getState();
+
+      if (state.items.length === 0) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({ error: "No flights in booking. Add a flight first." }),
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      const allProvided = !!(passenger_name && email && card_number && expiry && cvv);
+
+      // Format card number with spaces for display
+      const formattedCard = card_number
+        ? card_number.replace(/\D/g, "").replace(/(.{4})/g, "$1 ").trim()
+        : undefined;
+
+      state.setCheckoutPrefill({
+        name: passenger_name,
+        email,
+        card: formattedCard,
+        expiry,
+        cvv,
+        autoSubmit: allProvided,
+      });
+      state.setCheckoutOpen(true);
+
+      pushDataLayerEvent("webmcp_tool_used", {
+        tool_name: "checkout",
+        fields_provided: [passenger_name, email, card_number, expiry, cvv].filter(Boolean).length,
+        booking_value: state.getTotal(),
+        interaction_source: "webmcp",
+      });
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({
+              success: true,
+              message: allProvided
+                ? "All fields pre-filled in the checkout form. User just needs to click Pay to confirm."
+                : "Checkout form opened with available fields pre-filled. User will complete the rest.",
+              booking_total: state.getTotal(),
+            }),
+          },
+        ],
+      };
+    },
+  });
+
   const selectSeatSchema = {
     type: "object" as const,
     properties: {
@@ -333,5 +429,5 @@ export async function registerWebMCPTools() {
     },
   });
 
-  return 4;
+  return 5;
 }

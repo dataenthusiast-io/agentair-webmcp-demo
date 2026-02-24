@@ -7,10 +7,19 @@ export type { SelectedSeat }
 
 export interface AgentActivity {
   id: string
-  tool: 'search_flights' | 'add_to_booking' | 'get_booking' | 'select_seat'
+  tool: 'search_flights' | 'add_to_booking' | 'get_booking' | 'select_seat' | 'checkout'
   message: string
   detail?: string
   timestamp: number
+}
+
+export interface CheckoutPrefill {
+  name?: string
+  email?: string
+  card?: string
+  expiry?: string
+  cvv?: string
+  autoSubmit?: boolean
 }
 
 export interface BookingItem {
@@ -26,10 +35,14 @@ interface StoreState {
   flights: Flight[]
   hasSearched: boolean
   agentActivities: AgentActivity[]
-  activeSeatMap: string | null // class ID with seat map open
+  activeSeatMap: string | null
+  checkoutOpen: boolean
+  checkoutPrefill: CheckoutPrefill
 
   setHasSearched: (v: boolean) => void
   setSeatMapOpen: (classId: string | null) => void
+  setCheckoutOpen: (v: boolean) => void
+  setCheckoutPrefill: (data: CheckoutPrefill) => void
   addAgentActivity: (activity: Omit<AgentActivity, 'id' | 'timestamp'>) => void
   dismissAgentActivity: (id: string) => void
 
@@ -56,10 +69,13 @@ export const useStore = create<StoreState>((set, get) => ({
   hasSearched: false,
   agentActivities: [],
   activeSeatMap: null,
+  checkoutOpen: false,
+  checkoutPrefill: {},
 
   setHasSearched: (v) => set({ hasSearched: v }),
-
   setSeatMapOpen: (classId) => set({ activeSeatMap: classId }),
+  setCheckoutOpen: (v) => set({ checkoutOpen: v }),
+  setCheckoutPrefill: (data) => set({ checkoutPrefill: data }),
 
   addAgentActivity: (activity) => {
     const id = `act-${++activityCounter}`

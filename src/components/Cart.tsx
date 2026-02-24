@@ -1,8 +1,23 @@
-import { X, ShoppingBag, CreditCard, Trash2, LayoutGrid } from 'lucide-react'
+import { X, ShoppingBag, CreditCard, Trash2, LayoutGrid, ArrowLeft, Lock } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { pushDataLayerEvent } from '../lib/analytics'
+import { useEffect, useRef, useState } from 'react'
+
+// ─── Booking summary view ─────────────────────────────────────────────────────
 
 export default function BookingSidebar() {
+  const items = useStore((s) => s.items)
+  const checkoutOpen = useStore((s) => s.checkoutOpen)
+  const setCheckoutOpen = useStore((s) => s.setCheckoutOpen)
+
+  if (checkoutOpen) {
+    return <CheckoutForm onBack={() => setCheckoutOpen(false)} />
+  }
+
+  return <BookingSummary onCheckout={() => setCheckoutOpen(true)} />
+}
+
+function BookingSummary({ onCheckout }: { onCheckout: () => void }) {
   const items = useStore((s) => s.items)
   const removeFromBooking = useStore((s) => s.removeFromBooking)
   const clearBooking = useStore((s) => s.clearBooking)
@@ -14,26 +29,6 @@ export default function BookingSidebar() {
       ecommerce: { currency: 'USD' },
       interaction_source: 'ui',
     })
-  }
-
-  const handleCheckout = () => {
-    pushDataLayerEvent('begin_checkout', {
-      ecommerce: {
-        currency: 'USD',
-        value: total,
-        items: items.map((i) => ({
-          item_id: i.flightClass.id,
-          item_name: `${i.flight.fromCode} → ${i.flight.toCode} · ${i.flightClass.name}`,
-          price: i.flightClass.price,
-          quantity: i.passengers,
-        })),
-      },
-      interaction_source: 'ui',
-    })
-    alert(
-      `Booking confirmed!\nTotal: $${total.toLocaleString()}\n\nThank you for flying AgentAir.`,
-    )
-    clearBooking()
   }
 
   return (
@@ -111,7 +106,7 @@ export default function BookingSidebar() {
               </span>
             </div>
             <button
-              onClick={handleCheckout}
+              onClick={onCheckout}
               className="w-full py-2.5 bg-neutral-900 hover:bg-neutral-700 text-white text-sm font-semibold transition-colors rounded-lg flex items-center justify-center gap-2"
             >
               <CreditCard size={14} />
@@ -123,6 +118,204 @@ export default function BookingSidebar() {
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+// ─── Checkout form ─────────────────────────────────────────────────────────────
+
+function formatCardNumber(value: string) {
+  return value
+    .replace(/\D/g, '')
+    .slice(0, 16)
+    .replace(/(.{4})/g, '$1 ')
+    .trim()
+}
+
+function formatExpiry(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 4)
+  if (digits.length > 2) return `${digits.slice(0, 2)}/${digits.slice(2)}`
+  return digits
+}
+
+function CheckoutForm({ onBack }: { onBack: () => void }) {
+  const items = useStore((s) => s.items)
+  const total = useStore((s) => s.getTotal())
+  const clearBooking = useStore((s) => s.clearBooking)
+  const setCheckoutOpen = useStore((s) => s.setCheckoutOpen)
+  const prefill = useStore((s) => s.checkoutPrefill)
+
+  const [name, setName] = useState(prefill.name ?? '')
+  const [email, setEmail] = useState(prefill.email ?? '')
+  const [card, setCard] = useState(prefill.card ?? '')
+  const [expiry, setExpiry] = useState(prefill.expiry ?? '')
+  const [cvv, setCvv] = useState(prefill.cvv ?? '')
+  const [submitting, setSubmitting] = useState(false)
+
+  // Sync prefill when agent updates it after mount (e.g. checkout tool called)
+  const prevPrefill = useRef(prefill)
+  useEffect(() => {
+    if (prefill === prevPrefill.current) return
+    prevPrefill.current = prefill
+    if (prefill.name) setName(prefill.name)
+    if (prefill.email) setEmail(prefill.email)
+    if (prefill.card) setCard(prefill.card)
+    if (prefill.expiry) setExpiry(prefill.expiry)
+    if (prefill.cvv) setCvv(prefill.cvv)
+  }, [prefill])
+
+  const valid = !!(name.trim() && email.trim() && card.replace(/\s/g, '').length === 16
+    && expiry.length === 5 && cvv.length >= 3)
+
+  useEffect(() => {
+    if (prefill.autoSubmit && valid && !submitting) {
+      const t = setTimeout(handlePay, 600)
+      return () => clearTimeout(t)
+    }
+  }, [valid, prefill.autoSubmit])
+
+  const handlePay = () => {
+    if (!valid || submitting) return
+    setSubmitting(true)
+    pushDataLayerEvent('purchase', {
+      ecommerce: {
+        currency: 'USD',
+        value: total,
+        transaction_id: `AA-${Date.now()}`,
+        items: items.map((i) => ({
+          item_id: i.flightClass.id,
+          item_name: `${i.flight.fromCode} → ${i.flight.toCode} · ${i.flightClass.name}`,
+          price: i.flightClass.price,
+          quantity: i.passengers,
+          seat: i.seat?.label,
+        })),
+      },
+      passenger_name: name,
+      interaction_source: 'ui',
+    })
+    setTimeout(() => {
+      setCheckoutOpen(false)
+      clearBooking()
+      alert(`Booking confirmed! ✈\n\nThank you, ${name.split(' ')[0]}. Your itinerary has been sent to ${email}.`)
+      setSubmitting(false)
+    }, 800)
+  }
+
+  const fieldCls = 'w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm text-neutral-900 placeholder-neutral-400 outline-none focus:border-neutral-500 focus:bg-white transition-colors'
+  const labelCls = 'block text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-1'
+
+  return (
+    <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden sticky top-20">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-neutral-100 flex items-center gap-2">
+        <button
+          onClick={onBack}
+          className="p-1 -ml-1 text-neutral-400 hover:text-neutral-700 transition-colors"
+        >
+          <ArrowLeft size={14} />
+        </button>
+        <span className="text-sm font-semibold text-neutral-900">Checkout</span>
+      </div>
+
+      <div className="px-4 py-4 space-y-4">
+        {/* Booking mini-summary */}
+        <div className="bg-neutral-50 rounded-lg p-3 space-y-1.5">
+          {items.map((item) => (
+            <div key={item.flightClass.id} className="flex justify-between text-xs">
+              <span className="text-neutral-600">
+                {item.flight.fromCode} — {item.flight.toCode} · {item.flightClass.name}
+                {item.seat ? ` · ${item.seat.label}` : ''}
+              </span>
+              <span className="font-semibold text-neutral-900 tabular-nums">
+                ${(item.flightClass.price * item.passengers).toLocaleString()}
+              </span>
+            </div>
+          ))}
+          <div className="flex justify-between pt-1.5 border-t border-neutral-200">
+            <span className="text-xs font-semibold text-neutral-700">Total</span>
+            <span className="text-sm font-bold text-neutral-900 tabular-nums">
+              ${total.toLocaleString()}
+            </span>
+          </div>
+        </div>
+
+        {/* Passenger */}
+        <div>
+          <p className={labelCls}>Passenger</p>
+          <div className="space-y-2">
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Full name (as on ID)"
+              className={fieldCls}
+              autoComplete="name"
+            />
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email"
+              className={fieldCls}
+              autoComplete="email"
+            />
+          </div>
+        </div>
+
+        {/* Payment */}
+        <div>
+          <p className={labelCls}>Payment</p>
+          <div className="space-y-2">
+            <input
+              type="text"
+              value={card}
+              onChange={(e) => setCard(formatCardNumber(e.target.value))}
+              placeholder="Card number"
+              className={`${fieldCls} tabular-nums tracking-wider`}
+              autoComplete="cc-number"
+              inputMode="numeric"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                value={expiry}
+                onChange={(e) => setExpiry(formatExpiry(e.target.value))}
+                placeholder="MM/YY"
+                className={`${fieldCls} tabular-nums`}
+                autoComplete="cc-exp"
+                inputMode="numeric"
+              />
+              <input
+                type="text"
+                value={cvv}
+                onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="CVV"
+                className={`${fieldCls} tabular-nums`}
+                autoComplete="cc-csc"
+                inputMode="numeric"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Submit */}
+        <button
+          onClick={handlePay}
+          disabled={!valid || submitting}
+          className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+            valid && !submitting
+              ? 'bg-neutral-900 hover:bg-neutral-700 text-white'
+              : 'bg-neutral-100 text-neutral-400 cursor-default'
+          }`}
+        >
+          <Lock size={13} />
+          {submitting ? 'Processing…' : `Pay $${total.toLocaleString()}`}
+        </button>
+
+        <p className="text-center text-[10px] text-neutral-300">
+          Demo only — no real charge will be made
+        </p>
+      </div>
     </div>
   )
 }
