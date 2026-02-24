@@ -4,7 +4,7 @@ import { getSeatLayout, SEAT_LAYOUTS } from '../lib/seats'
 import type { SeatInfo, SelectedSeat } from '../lib/seats'
 import type { FlightClass } from '../lib/flights'
 import { useStore } from '../lib/store'
-import { pushDataLayerEvent } from '../lib/analytics'
+import { pushDataLayerEvent, pushEcommerceEvent } from '../lib/analytics'
 
 interface Props {
   flightId: string
@@ -25,6 +25,9 @@ export default function SeatMap({ flightId, classId, className, preSelected, onC
   const addToBooking = useStore((s) => s.addToBooking)
   const selectSeat = useStore((s) => s.selectSeat)
   const isInBooking = useStore((s) => s.items.some((i) => i.flightClass.id === classId))
+  const flightClass = useStore((s) =>
+    s.flights.find((f) => f.id === flightId)?.classes.find((c) => c.id === classId)
+  )
 
   const [picked, setPicked] = useState<SeatInfo | null>(
     preSelected
@@ -56,13 +59,25 @@ export default function SeatMap({ flightId, classId, className, preSelected, onC
     } else {
       addToBooking(flightId, classId, 1, false, seat)
     }
-    pushDataLayerEvent('add_to_cart', {
-      ecommerce: {
+    pushEcommerceEvent(
+      'add_to_cart',
+      {
         currency: 'USD',
-        items: [{ item_id: classId, seat_label: seat.label, seat_type: seat.type }],
+        value: flightClass ? flightClass.price : 0,
+        items: [
+          {
+            item_id: classId,
+            item_name: `${flightId} · ${className}`,
+            item_brand: 'AgentAir',
+            item_category: className,
+            price: flightClass?.price ?? 0,
+            quantity: 1,
+            item_variant: seat.label,
+          },
+        ],
       },
-      interaction_source: 'ui',
-    })
+      { interaction_source: 'ui' }
+    )
     onClose()
   }
 

@@ -2,6 +2,7 @@ import { Check, ChevronRight, LayoutGrid } from 'lucide-react'
 import { useStore } from '../lib/store'
 import type { Flight, FlightClass } from '../lib/flights'
 import SeatMap from './SeatMap'
+import { pushEcommerceEvent } from '../lib/analytics'
 
 function ClassRow({ flight, cls }: { flight: Flight; cls: FlightClass }) {
   const bookingItem = useStore((s) => s.items.find((i) => i.flightClass.id === cls.id))
@@ -11,7 +12,30 @@ function ClassRow({ flight, cls }: { flight: Flight; cls: FlightClass }) {
   const hasSeat = !!bookingItem?.seat
   const isSeatMapOpen = activeSeatMap === cls.id
 
-  const handleSelect = () => setSeatMapOpen(isSeatMapOpen ? null : cls.id)
+  const handleSelect = () => {
+    const opening = !isSeatMapOpen
+    setSeatMapOpen(opening ? cls.id : null)
+    if (opening && !isInBooking) {
+      pushEcommerceEvent(
+        'select_item',
+        {
+          item_list_id: 'flight_results',
+          item_list_name: 'Flight Results',
+          items: [
+            {
+              item_id: cls.id,
+              item_name: `${flight.fromCode} → ${flight.toCode} · ${cls.name}`,
+              item_brand: 'AgentAir',
+              item_category: cls.name,
+              price: cls.price,
+              quantity: 1,
+            },
+          ],
+        },
+        { interaction_source: 'ui' }
+      )
+    }
+  }
 
   return (
     <>

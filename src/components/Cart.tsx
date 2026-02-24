@@ -1,6 +1,6 @@
 import { X, ShoppingBag, CreditCard, Trash2, LayoutGrid, ArrowLeft, Lock } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { pushDataLayerEvent } from '../lib/analytics'
+import { pushEcommerceEvent } from '../lib/analytics'
 import { useEffect, useRef, useState } from 'react'
 
 // ─── Booking summary view ─────────────────────────────────────────────────────
@@ -24,11 +24,48 @@ function BookingSummary({ onCheckout }: { onCheckout: () => void }) {
   const total = useStore((s) => s.getTotal())
 
   const handleRemove = (classId: string) => {
+    const item = items.find((i) => i.flightClass.id === classId)
     removeFromBooking(classId)
-    pushDataLayerEvent('remove_from_cart', {
-      ecommerce: { currency: 'USD' },
-      interaction_source: 'ui',
-    })
+    if (item) {
+      pushEcommerceEvent(
+        'remove_from_cart',
+        {
+          currency: 'USD',
+          value: item.flightClass.price * item.passengers,
+          items: [
+            {
+              item_id: item.flightClass.id,
+              item_name: `${item.flight.fromCode} → ${item.flight.toCode} · ${item.flightClass.name}`,
+              item_brand: 'AgentAir',
+              item_category: item.flightClass.name,
+              price: item.flightClass.price,
+              quantity: item.passengers,
+            },
+          ],
+        },
+        { interaction_source: 'ui' }
+      )
+    }
+  }
+
+  const handleCheckout = () => {
+    pushEcommerceEvent(
+      'begin_checkout',
+      {
+        currency: 'USD',
+        value: total,
+        items: items.map((i) => ({
+          item_id: i.flightClass.id,
+          item_name: `${i.flight.fromCode} → ${i.flight.toCode} · ${i.flightClass.name}`,
+          item_brand: 'AgentAir',
+          item_category: i.flightClass.name,
+          price: i.flightClass.price,
+          quantity: i.passengers,
+        })),
+      },
+      { interaction_source: 'ui' }
+    )
+    onCheckout()
   }
 
   return (
@@ -106,7 +143,7 @@ function BookingSummary({ onCheckout }: { onCheckout: () => void }) {
               </span>
             </div>
             <button
-              onClick={onCheckout}
+              onClick={handleCheckout}
               className="w-full py-2.5 bg-neutral-900 hover:bg-neutral-700 text-white text-sm font-semibold transition-colors rounded-lg flex items-center justify-center gap-2"
             >
               <CreditCard size={14} />
@@ -177,22 +214,27 @@ function CheckoutForm({ onBack }: { onBack: () => void }) {
   const handlePay = () => {
     if (!valid || submitting) return
     setSubmitting(true)
-    pushDataLayerEvent('purchase', {
-      ecommerce: {
+    pushEcommerceEvent(
+      'purchase',
+      {
+        transaction_id: `AA-${Date.now()}`,
         currency: 'USD',
         value: total,
-        transaction_id: `AA-${Date.now()}`,
         items: items.map((i) => ({
           item_id: i.flightClass.id,
           item_name: `${i.flight.fromCode} → ${i.flight.toCode} · ${i.flightClass.name}`,
+          item_brand: 'AgentAir',
+          item_category: i.flightClass.name,
           price: i.flightClass.price,
           quantity: i.passengers,
-          seat: i.seat?.label,
+          ...(i.seat && { item_variant: i.seat.label }),
         })),
       },
-      passenger_name: name,
-      interaction_source: 'ui',
-    })
+      {
+        passenger_name: name,
+        interaction_source: prefill.autoSubmit ? 'agent' : 'ui',
+      }
+    )
     setTimeout(() => {
       setCheckoutOpen(false)
       clearBooking()

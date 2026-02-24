@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Search, ArrowRight, Plane } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { pushDataLayerEvent } from '../lib/analytics'
+import { pushDataLayerEvent, pushEcommerceEvent } from '../lib/analytics'
 import { flights } from '../lib/flights'
 import FlightCard from '../components/FlightCard'
 import BookingSidebar from '../components/Cart'
@@ -99,6 +99,30 @@ function SearchForm({ onSearch }: { onSearch: () => void }) {
 function App() {
   const hasSearched = useStore((s) => s.hasSearched)
   const setHasSearched = useStore((s) => s.setHasSearched)
+
+  useEffect(() => {
+    if (!hasSearched) return
+    pushEcommerceEvent(
+      'view_item_list',
+      {
+        item_list_id: 'flight_results',
+        item_list_name: 'Flight Results',
+        items: flights.map((f, index) =>
+          f.classes.map((cls) => ({
+            item_id: cls.id,
+            item_name: `${f.fromCode} → ${f.toCode} · ${cls.name}`,
+            item_brand: 'AgentAir',
+            item_category: cls.name,
+            item_list_id: 'flight_results',
+            item_list_name: 'Flight Results',
+            index,
+            price: cls.price,
+          }))
+        ).flat(),
+      },
+      { interaction_source: 'ui' }
+    )
+  }, [hasSearched])
 
   return (
     <div className="min-h-screen bg-neutral-50 pb-12">

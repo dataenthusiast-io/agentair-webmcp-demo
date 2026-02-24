@@ -1,6 +1,6 @@
 import type { InputSchema } from "@mcp-b/global";
 import { z } from "zod";
-import { pushDataLayerEvent } from "./analytics";
+import { pushDataLayerEvent, pushEcommerceEvent } from "./analytics";
 import { useStore } from "./store";
 import { getSeatLayout, findBestSeat, findSeatByLabel } from "./seats";
 
@@ -75,12 +75,12 @@ export async function registerWebMCPTools() {
         detail: `${from?.toUpperCase() ?? "Any"} → ${to?.toUpperCase() ?? "Any"} · ${results.length} flight${results.length !== 1 ? "s" : ""} found`,
       });
 
-      pushDataLayerEvent("webmcp_tool_used", {
-        tool_name: "search_flights",
+      pushDataLayerEvent("search", {
+        search_term: [from, to].filter(Boolean).join(" → ") || "any",
         ...(from !== undefined && { from }),
         ...(to !== undefined && { to }),
         results_count: results.length,
-        interaction_source: "webmcp",
+        interaction_source: "agent",
       });
       return {
         content: [
@@ -136,22 +136,24 @@ export async function registerWebMCPTools() {
         detail: `${flight.fromCode} → ${flight.toCode} · ${flightClass.name} · $${flightClass.price.toLocaleString()} · ${passengers} pax`,
       });
 
-      pushDataLayerEvent("add_to_cart", {
-        ecommerce: {
+      pushEcommerceEvent(
+        "add_to_cart",
+        {
           currency: "USD",
           value: flightClass.price * passengers,
           items: [
             {
               item_id: class_id,
               item_name: `${flight.fromCode} → ${flight.toCode} · ${flightClass.name}`,
+              item_brand: "AgentAir",
+              item_category: flightClass.name,
               price: flightClass.price,
               quantity: passengers,
-              item_category: flightClass.name,
             },
           ],
         },
-        interaction_source: "webmcp",
-      });
+        { interaction_source: "agent" }
+      );
       return {
         content: [
           {
@@ -200,12 +202,22 @@ export async function registerWebMCPTools() {
             : `${state.getItemCount()} item${state.getItemCount() !== 1 ? "s" : ""} · Total $${state.getTotal().toLocaleString()}`,
       });
 
-      pushDataLayerEvent("webmcp_tool_used", {
-        tool_name: "get_booking",
-        interaction_source: "webmcp",
-        booking_value: state.getTotal(),
-        item_count: state.getItemCount(),
-      });
+      pushEcommerceEvent(
+        "view_cart",
+        {
+          currency: "USD",
+          value: state.getTotal(),
+          items: state.items.map((i) => ({
+            item_id: i.flightClass.id,
+            item_name: `${i.flight.fromCode} → ${i.flight.toCode} · ${i.flightClass.name}`,
+            item_brand: "AgentAir",
+            item_category: i.flightClass.name,
+            price: i.flightClass.price,
+            quantity: i.passengers,
+          })),
+        },
+        { interaction_source: "agent" }
+      );
       return {
         content: [
           {
@@ -300,12 +312,22 @@ export async function registerWebMCPTools() {
           : `Pre-filled ${[passenger_name, email].filter(Boolean).join(", ")}`,
       });
 
-      pushDataLayerEvent("webmcp_tool_used", {
-        tool_name: "checkout",
-        fields_provided: [passenger_name, email, card_number, expiry, cvv].filter(Boolean).length,
-        booking_value: state.getTotal(),
-        interaction_source: "webmcp",
-      });
+      pushEcommerceEvent(
+        "begin_checkout",
+        {
+          currency: "USD",
+          value: state.getTotal(),
+          items: state.items.map((i) => ({
+            item_id: i.flightClass.id,
+            item_name: `${i.flight.fromCode} → ${i.flight.toCode} · ${i.flightClass.name}`,
+            item_brand: "AgentAir",
+            item_category: i.flightClass.name,
+            price: i.flightClass.price,
+            quantity: i.passengers,
+          })),
+        },
+        { interaction_source: "agent" }
+      );
 
       return {
         content: [
@@ -409,15 +431,8 @@ export async function registerWebMCPTools() {
         seat_type: selected.type,
         class_id,
         flight_id: flight.id,
-        interaction_source: "webmcp",
-      });
-      pushDataLayerEvent("webmcp_tool_used", {
-        tool_name: "select_seat",
-        class_id,
-        seat_label: selected.label,
-        seat_type: selected.type,
         preference: preference ?? null,
-        interaction_source: "webmcp",
+        interaction_source: "agent",
       });
 
       return {
