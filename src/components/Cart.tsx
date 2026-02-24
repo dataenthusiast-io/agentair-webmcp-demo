@@ -1,4 +1,4 @@
-import { X, ShoppingBag, CreditCard, Trash2, Check } from 'lucide-react'
+import { X, ShoppingBag, CreditCard, Trash2, LayoutGrid } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { pushDataLayerEvent } from '../lib/analytics'
 
@@ -78,6 +78,16 @@ export default function BookingSidebar() {
                     <div className="text-xs text-neutral-400 mt-0.5 tabular-nums">
                       {item.flight.departure} — {item.flight.arrival} · {item.passengers} pax
                     </div>
+                    {item.seat ? (
+                      <div className="flex items-center gap-1 mt-1">
+                        <LayoutGrid size={10} className="text-neutral-400" />
+                        <span className="text-xs text-neutral-500 tabular-nums">
+                          Seat {item.seat.label} · {item.seat.type}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-neutral-300 mt-1 italic">No seat selected</div>
+                    )}
                     <div className="text-sm font-semibold text-neutral-900 mt-1 tabular-nums">
                       ${(item.flightClass.price * item.passengers).toLocaleString()}
                     </div>

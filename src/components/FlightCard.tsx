@@ -1,90 +1,106 @@
-import { Check } from 'lucide-react'
+import { Check, ChevronRight, LayoutGrid } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { pushDataLayerEvent } from '../lib/analytics'
 import type { Flight, FlightClass } from '../lib/flights'
+import SeatMap from './SeatMap'
 
 function ClassRow({ flight, cls }: { flight: Flight; cls: FlightClass }) {
-  const addToBooking = useStore((s) => s.addToBooking)
-  const isInBooking = useStore((s) =>
-    s.items.some((i) => i.flightClass.id === cls.id),
-  )
+  const bookingItem = useStore((s) => s.items.find((i) => i.flightClass.id === cls.id))
+  const activeSeatMap = useStore((s) => s.activeSeatMap)
+  const setSeatMapOpen = useStore((s) => s.setSeatMapOpen)
+  const isInBooking = !!bookingItem
+  const hasSeat = !!bookingItem?.seat
+  const isSeatMapOpen = activeSeatMap === cls.id
 
-  const handleAdd = () => {
-    addToBooking(flight.id, cls.id, 1)
-    pushDataLayerEvent('add_to_cart', {
-      ecommerce: {
-        currency: 'USD',
-        value: cls.price,
-        items: [
-          {
-            item_id: cls.id,
-            item_name: `${flight.fromCode} → ${flight.toCode} · ${cls.name}`,
-            price: cls.price,
-            quantity: 1,
-            item_category: cls.name,
-          },
-        ],
-      },
-      interaction_source: 'ui',
-    })
-  }
+  const handleSelect = () => setSeatMapOpen(isSeatMapOpen ? null : cls.id)
 
   return (
-    <div className="flex items-center gap-4 py-4 border-t border-neutral-100 first:border-0">
-      {/* Class + meta */}
-      <div className="w-24 shrink-0">
-        <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
-          {cls.name}
+    <>
+      <div className="flex items-center gap-4 py-3.5 border-t border-neutral-100 first:border-0">
+        {/* Class + meta */}
+        <div className="w-24 shrink-0">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+            {cls.name}
+          </div>
+          {cls.refundable ? (
+            <div className="text-[10px] text-neutral-400 mt-0.5">Refundable</div>
+          ) : (
+            <div className="text-[10px] text-neutral-300 mt-0.5">Non-refund.</div>
+          )}
         </div>
-        {cls.refundable ? (
-          <div className="text-[10px] text-neutral-400 mt-0.5">Refundable</div>
-        ) : (
-          <div className="text-[10px] text-neutral-300 mt-0.5">Non-refund.</div>
-        )}
-      </div>
 
-      {/* Price */}
-      <div className="w-20 shrink-0">
-        <div className="text-base font-bold text-neutral-900 tabular-nums">
-          ${cls.price.toLocaleString()}
+        {/* Price */}
+        <div className="w-20 shrink-0">
+          <div className="text-base font-bold text-neutral-900 tabular-nums">
+            ${cls.price.toLocaleString()}
+          </div>
+          <div className="text-[10px] text-neutral-400">/ person</div>
         </div>
-        <div className="text-[10px] text-neutral-400">/ person</div>
-      </div>
 
-      {/* Features */}
-      <div className="flex-1 min-w-0">
-        <p className="text-xs text-neutral-500 leading-relaxed truncate">
-          {cls.features.join(' · ')}
-        </p>
-        <p className="text-[10px] text-neutral-400 mt-0.5">
-          Baggage: {cls.baggage}
-        </p>
-      </div>
+        {/* Features */}
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-neutral-500 leading-relaxed truncate">
+            {cls.features.join(' · ')}
+          </p>
+          <p className="text-[10px] text-neutral-400 mt-0.5">
+            Baggage: {cls.baggage}
+          </p>
+        </div>
 
-      {/* Seats */}
-      <div className="hidden sm:block w-16 shrink-0 text-right">
-        <div className="text-[10px] text-neutral-400">
-          {cls.seatsLeft} seats
+        {/* Seats available */}
+        <div className="hidden sm:block w-16 shrink-0 text-right">
+          <div className="text-[10px] text-neutral-400">{cls.seatsLeft} seats</div>
+        </div>
+
+        {/* Action */}
+        <div className="shrink-0 flex items-center gap-2">
+          {isInBooking && hasSeat ? (
+            /* Booked with seat */
+            <button
+              onClick={handleSelect}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-neutral-900 bg-neutral-100 hover:bg-neutral-200 rounded transition-colors"
+              title="Change seat"
+            >
+              <Check size={12} className="text-emerald-600" />
+              {bookingItem.seat!.label}
+              <LayoutGrid size={11} className="text-neutral-400 ml-0.5" />
+            </button>
+          ) : isInBooking && !hasSeat ? (
+            /* Booked without seat yet */
+            <button
+              onClick={handleSelect}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-neutral-900 hover:bg-neutral-700 rounded transition-colors"
+            >
+              <LayoutGrid size={11} />
+              Select seat
+            </button>
+          ) : (
+            /* Not booked */
+            <button
+              onClick={handleSelect}
+              className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+                isSeatMapOpen
+                  ? 'text-neutral-900 bg-neutral-200'
+                  : 'text-white bg-neutral-900 hover:bg-neutral-700'
+              }`}
+            >
+              Select
+              <ChevronRight size={12} className={`transition-transform ${isSeatMapOpen ? 'rotate-90' : ''}`} />
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Action */}
-      <div className="shrink-0">
-        {isInBooking ? (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-neutral-400 bg-neutral-100 rounded">
-            <Check size={12} />
-            Added
-          </span>
-        ) : (
-          <button
-            onClick={handleAdd}
-            className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-700 text-white text-xs font-medium rounded transition-colors"
-          >
-            Select
-          </button>
-        )}
-      </div>
-    </div>
+      {/* Seat map — inline expansion */}
+      {isSeatMapOpen && (
+        <SeatMap
+          flightId={flight.id}
+          classId={cls.id}
+          className={cls.name}
+          preSelected={bookingItem?.seat}
+          onClose={() => setSeatMapOpen(null)}
+        />
+      )}
+    </>
   )
 }
 

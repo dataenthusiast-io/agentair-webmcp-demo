@@ -2,6 +2,7 @@ import type { InputSchema } from "@mcp-b/global";
 import { z } from "zod";
 import { pushDataLayerEvent } from "./analytics";
 import { useStore } from "./store";
+import { getSeatLayout, findBestSeat, findSeatByLabel } from "./seats";
 
 const searchFlightsSchema = {
   type: "object" as const,
@@ -220,5 +221,117 @@ export async function registerWebMCPTools() {
     },
   });
 
-  return 3;
+  const selectSeatSchema = {
+    type: "object" as const,
+    properties: {
+      class_id: {
+        type: "string" as const,
+        description: "Class ID to select a seat for (e.g. 'AA101-BIZ'). The flight will be added to the booking automatically if not already.",
+      },
+      seat: {
+        type: "string" as const,
+        description: "Specific seat label (e.g. '3A', '22F'). If omitted, the best seat matching the preference is chosen.",
+      },
+      preference: {
+        type: "string" as const,
+        enum: ["window", "aisle", "middle"],
+        description: "Seat type preference. Used when no specific seat label is given.",
+      },
+    },
+    required: ["class_id"],
+  };
+
+  const selectSeatParams = z.object({
+    class_id: z.string(),
+    seat: z.string().optional(),
+    preference: z.enum(["window", "aisle", "middle"]).optional(),
+  });
+
+  mc.registerTool({
+    name: "select_seat",
+    description:
+      "Select a seat for a booked flight class. Provide a specific seat label (e.g. '3A') or a preference ('window', 'aisle', 'middle') and the best available seat is picked automatically. If the flight class is not yet in the booking, it will be added first.",
+    inputSchema: selectSeatSchema as InputSchema,
+    execute: async (params) => {
+      const { class_id, seat: seatLabel, preference } = selectSeatParams.parse(params);
+      const state = useStore.getState();
+
+      // Find the flight + class
+      const flight = state.flights.find((f) => f.classes.some((c) => c.id === class_id));
+      if (!flight) {
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ error: `Class "${class_id}" not found` }) }],
+          isError: true,
+        };
+      }
+      const flightClass = flight.classes.find((c) => c.id === class_id)!;
+
+      // Build seat layout and find the right seat
+      const { rows } = getSeatLayout(flightClass.name);
+      let selected = null;
+      if (seatLabel) {
+        selected = findSeatByLabel(rows, seatLabel);
+        if (!selected) {
+          return {
+            content: [{ type: "text" as const, text: JSON.stringify({ error: `Seat "${seatLabel}" not found or is occupied` }) }],
+            isError: true,
+          };
+        }
+      } else {
+        selected = findBestSeat(rows, preference ?? "window");
+        if (!selected) {
+          return {
+            content: [{ type: "text" as const, text: JSON.stringify({ error: "No available seats matching preference" }) }],
+            isError: true,
+          };
+        }
+      }
+
+      // Add to booking if needed, then set seat; also expand seat map in UI
+      state.setHasSearched(true);
+      if (!state.items.some((i) => i.flightClass.id === class_id)) {
+        state.addToBooking(flight.id, class_id, 1, true, selected);
+      } else {
+        state.selectSeat(class_id, selected);
+      }
+      state.setSeatMapOpen(class_id);
+
+      pushDataLayerEvent("seat_selected", {
+        seat_label: selected.label,
+        seat_type: selected.type,
+        class_id,
+        flight_id: flight.id,
+        interaction_source: "webmcp",
+      });
+      pushDataLayerEvent("webmcp_tool_used", {
+        tool_name: "select_seat",
+        class_id,
+        seat_label: selected.label,
+        seat_type: selected.type,
+        preference: preference ?? null,
+        interaction_source: "webmcp",
+      });
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({
+              success: true,
+              seat: {
+                label: selected.label,
+                type: selected.type,
+                row: selected.row,
+                col: selected.col,
+                flight: `${flight.fromCode} → ${flight.toCode}`,
+                class: flightClass.name,
+              },
+            }),
+          },
+        ],
+      };
+    },
+  });
+
+  return 4;
 }
