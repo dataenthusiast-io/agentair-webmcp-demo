@@ -1,5 +1,7 @@
 # AgentAir — Agent-Ready Analytics with WebMCP
 
+![AgentAir flight results page](docs/screenshot-results.png)
+
 A demo flight booking app that shows how to instrument a web application for **both human and AI agent interactions** using a single, coherent analytics data model.
 
 The core idea: as AI agents begin completing e-commerce flows autonomously (searching, selecting, and purchasing on behalf of users), your analytics stack needs to capture both types of interaction — in the same events, with the same funnels — so you can compare and understand agent-driven behaviour alongside human behaviour.
@@ -17,6 +19,46 @@ This means a single GTM + GA4 setup gives you:
 - Standard e-commerce funnel reports that include agent-driven transactions
 - The ability to segment **any** metric by `interaction_source: "ui"` vs `"agent"`
 - Conversion rate, average order value, and drop-off comparisons between humans and AI agents
+
+---
+
+## How the tracking works
+
+```mermaid
+flowchart LR
+    subgraph USER["👤 User"]
+        U_CLICK["Clicks UI\n(search, select,\npay…)"]
+    end
+
+    subgraph AGENT["🤖 AI Agent"]
+        A_TOOL["Calls WebMCP tool\n(search_flights,\nadd_to_booking…)"]
+    end
+
+    subgraph APP["AgentAir App (browser)"]
+        HANDLER["Event handler\n/ tool execute()"]
+        DL["window.dataLayer.push()\n{ event, ecommerce,\ninteraction_source }"]
+    end
+
+    subgraph GTM["Google Tag Manager"]
+        TRIGGER["Trigger\n(Custom Event)"]
+        TAG["GA4 Event Tag\n+ Ecommerce"]
+    end
+
+    subgraph GA4["Google Analytics 4"]
+        REPORT["Reports &\nExplorations"]
+        DIM["Custom dimension:\ninteraction_source\n= ui | agent"]
+    end
+
+    U_CLICK -->|"interaction_source: ui"| HANDLER
+    A_TOOL -->|"interaction_source: agent"| HANDLER
+    HANDLER --> DL
+    DL --> TRIGGER
+    TRIGGER --> TAG
+    TAG --> REPORT
+    DIM -.->|"segment any metric"| REPORT
+```
+
+Both paths flow through the same dataLayer push — the only difference is the value of `interaction_source`. GTM and GA4 never need to know about WebMCP; the standard event contract handles everything.
 
 ---
 
