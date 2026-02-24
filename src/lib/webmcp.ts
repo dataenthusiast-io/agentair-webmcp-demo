@@ -1,5 +1,6 @@
 import type { InputSchema } from "@mcp-b/global";
 import { z } from "zod";
+import { pushDataLayerEvent } from "./analytics";
 import { useStore } from "./store";
 
 const getMenuSchema = {
@@ -52,6 +53,11 @@ export async function registerWebMCPTools() {
     execute: async (params) => {
       const { category } = getMenuParams.parse(params);
       const items = useStore.getState().getMenuByCategory(category);
+      pushDataLayerEvent("webmcp_tool_used", {
+        tool_name: "get_menu",
+        ...(category !== undefined && { category }),
+        interaction_source: "webmcp",
+      });
       return {
         content: [
           { type: "text" as const, text: JSON.stringify(items, null, 2) },
@@ -81,6 +87,22 @@ export async function registerWebMCPTools() {
         };
       }
       state.addToCart(item, quantity);
+      pushDataLayerEvent("add_to_cart", {
+        ecommerce: {
+          currency: "USD",
+          value: item.price * quantity,
+          items: [
+            {
+              item_id: item.id,
+              item_name: item.name,
+              price: item.price,
+              quantity,
+              item_category: item.category,
+            },
+          ],
+        },
+        interaction_source: "webmcp",
+      });
       return {
         content: [
           {
@@ -105,6 +127,12 @@ export async function registerWebMCPTools() {
         quantity: i.quantity,
         subtotal: i.menuItem.price * i.quantity,
       }));
+      pushDataLayerEvent("webmcp_tool_used", {
+        tool_name: "get_cart",
+        interaction_source: "webmcp",
+        cart_value: state.getTotal(),
+        item_count: state.getItemCount(),
+      });
       return {
         content: [
           {
