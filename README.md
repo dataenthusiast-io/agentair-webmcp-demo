@@ -69,15 +69,15 @@ pnpm install
 pnpm dev
 ```
 
-### Google Tag Manager
+### Google Analytics 4
 
-Add your GTM container ID to `.env`:
+Add your GA4 Measurement ID to `.env`:
 
 ```
-GTM_ID=GTM-XXXXXXX
+GA4_ID=G-XXXXXXXXXX
 ```
 
-The GTM `<head>` snippet and `<noscript>` fallback are injected server-side automatically. If `GTM_ID` is not set the app runs without GTM — no errors, no events lost (they still accumulate in `window.dataLayer`).
+The standard gtag.js snippet is injected server-side automatically. If `GA4_ID` is not set the app runs without analytics — no errors, events are simply not sent.
 
 ### Build for production
 
@@ -233,19 +233,14 @@ GTM is initialised in `src/routes/__root.tsx` via the server-rendered shell comp
 
 ---
 
-## GTM setup guide
+## GA4 setup guide
 
-1. **Create a GA4 Configuration tag** in GTM pointing to your Measurement ID, triggering on All Pages.
+1. **Add your Measurement ID** to `.env`: `GA4_ID=G-XXXXXXXXXX`
 
-2. **Create event tags** for each event in the reference table above. For ecommerce events, enable the "Send Ecommerce data" option and set the source to "Data Layer".
-
-3. **Create the custom dimension** in GA4:
+2. **Register the custom dimension** in GA4:
    - Admin → Custom definitions → Custom dimensions → Create
-   - Parameter name: `interaction_source`, Scope: Event
+   - Name: `Interaction Source` · Parameter name: `interaction_source` · Scope: Event
 
-4. **Create a custom dimension variable** in GTM:
-   - Variables → New → Data Layer Variable
-   - Variable name: `interaction_source`
-   - Use this variable in your event tags to pass the dimension to GA4.
+3. **Enable Enhanced Ecommerce** — GA4 supports it natively; no extra configuration needed. Events like `add_to_cart`, `begin_checkout`, and `purchase` are recognised automatically.
 
-5. **Publish** the GTM container and verify events in GA4 DebugView.
+4. **Verify** with GA4 DebugView — filter by `interaction_source` to confirm both `"ui"` and `"agent"` values appear.
