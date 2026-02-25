@@ -231,7 +231,6 @@ function CheckoutForm({ onBack }: { onBack: () => void }) {
         })),
       },
       {
-        passenger_name: name,
         interaction_source: prefill.autoSubmit ? 'agent' : 'ui',
       }
     )

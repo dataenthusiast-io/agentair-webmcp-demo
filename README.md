@@ -179,10 +179,11 @@ All items in ecommerce events share a consistent structure:
     "value": 799,
     "items": [{ "item_id": "AA101-BIZ", "item_name": "JFK → LAX · Business", "item_brand": "AgentAir", "item_category": "Business", "price": 799, "quantity": 1, "item_variant": "3A" }]
   },
-  "passenger_name": "Jane Smith",
   "interaction_source": "agent"
 }
 ```
+
+> **PII policy** — no personally identifiable information (name, email, card details) is ever sent to the dataLayer. All such data stays in local component state only.
 
 ### Human vs agent funnel
 

@@ -17,6 +17,11 @@ declare global {
  * Every event in this app carries interaction_source so analysts can
  * segment any metric (searches, add-to-carts, purchases, …) by whether
  * it was performed by a human or an AI agent.
+ *
+ * --- PII policy ---
+ * Do NOT pass any personally identifiable information (name, email,
+ * phone, card number, IP address, …) to either of these functions.
+ * All such data must remain in local component state only.
  */
 export function pushDataLayerEvent(
   eventName: string,
