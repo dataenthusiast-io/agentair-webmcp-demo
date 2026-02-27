@@ -68,7 +68,7 @@ export default function SeatMap({ flightId, classId, className, preSelected, onC
           {
             item_id: classId,
             item_name: `${flightId} · ${className}`,
-            item_brand: 'AgentAir',
+            item_brand: 'Air Agentic',
             item_category: className,
             price: flightClass?.price ?? 0,
             quantity: 1,

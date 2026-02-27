@@ -126,7 +126,7 @@ function App() {
           f.classes.map((cls) => ({
             item_id: cls.id,
             item_name: `${f.fromCode} → ${f.toCode} · ${cls.name}`,
-            item_brand: 'AgentAir',
+            item_brand: 'Air Agentic',
             item_category: cls.name,
             item_list_id: 'flight_results',
             item_list_name: 'Flight Results',
@@ -236,7 +236,7 @@ function App() {
               {
                 heading: 'AI-native booking',
                 body:
-                  'AgentAir exposes a native WebMCP interface, letting any AI agent search and book flights on your behalf — no scraping, no workarounds.',
+                  'Air Agentic exposes a native WebMCP interface, letting any AI agent search and book flights on your behalf — no scraping, no workarounds.',
               },
               {
                 heading: 'Instant confirmation',

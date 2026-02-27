@@ -14,7 +14,7 @@ function NotFound() {
         href="/"
         className="mt-6 inline-block bg-neutral-900 hover:bg-neutral-700 text-white px-5 py-2.5 text-sm font-medium transition-colors rounded-lg"
       >
-        Back to AgentAir
+        Back to Air Agentic
       </a>
     </main>
   )
@@ -26,7 +26,7 @@ export const Route = createRootRoute({
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'AgentAir — The AI-Native Airline' },
+      { title: 'Air Agentic — The AI-Native Airline' },
     ],
     links: [
       { rel: 'preconnect', href: 'https://fonts.googleapis.com' },

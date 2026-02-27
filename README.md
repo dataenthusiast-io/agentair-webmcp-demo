@@ -1,6 +1,6 @@
-# AgentAir — Agent-Ready Analytics with WebMCP
+# Air Agentic — Agent-Ready Analytics with WebMCP
 
-![AgentAir flight results page](docs/screenshot-results.png)
+![Air Agentic flight results page](docs/screenshot-results.png)
 
 A demo flight booking app that shows how to instrument a web application for **both human and AI agent interactions** using a single, coherent analytics data model.
 
@@ -10,7 +10,7 @@ The core idea: as AI agents begin completing e-commerce flows autonomously (sear
 
 ## What this demo shows
 
-**AgentAir** is a fictional airline that exposes a native [WebMCP](https://github.com/webmachinelearning/webmcp) interface alongside its standard UI. Any AI agent with WebMCP support can search flights, add them to a booking, select seats, and complete checkout — without scraping, browser automation, or custom integrations.
+**Air Agentic** is a fictional airline that exposes a native [WebMCP](https://github.com/webmachinelearning/webmcp) interface alongside its standard UI. Any AI agent with WebMCP support can search flights, add them to a booking, select seats, and complete checkout — without scraping, browser automation, or custom integrations.
 
 Every action, whether triggered by a user click or an agent tool call, emits GA4-compatible dataLayer events with a single custom dimension (`interaction_source`) that tells you who did it.
 
@@ -34,7 +34,7 @@ flowchart LR
         A_TOOL["Calls WebMCP tool\n(search_flights,\nadd_to_booking…)"]
     end
 
-    subgraph APP["AgentAir App (browser)"]
+    subgraph APP["Air Agentic App (browser)"]
         HANDLER["Event handler\n/ tool execute()"]
         DL["window.dataLayer.push()\n{ event, ecommerce,\ninteraction_source }"]
     end
@@ -129,7 +129,7 @@ All items in ecommerce events share a consistent structure:
 {
   "item_id": "AA101-BIZ",
   "item_name": "JFK → LAX · Business",
-  "item_brand": "AgentAir",
+  "item_brand": "Air Agentic",
   "item_category": "Business",
   "price": 799,
   "quantity": 1,
@@ -177,7 +177,7 @@ All items in ecommerce events share a consistent structure:
     "transaction_id": "AA-1740000000000",
     "currency": "USD",
     "value": 799,
-    "items": [{ "item_id": "AA101-BIZ", "item_name": "JFK → LAX · Business", "item_brand": "AgentAir", "item_category": "Business", "price": 799, "quantity": 1, "item_variant": "3A" }]
+    "items": [{ "item_id": "AA101-BIZ", "item_name": "JFK → LAX · Business", "item_brand": "Air Agentic", "item_category": "Business", "price": 799, "quantity": 1, "item_variant": "3A" }]
   },
   "interaction_source": "agent"
 }

@@ -61,7 +61,7 @@ export async function registerWebMCPTools() {
   mc.registerTool({
     name: "search_flights",
     description:
-      "Search for available AgentAir flights. Optionally filter by departure (from) and arrival (to) airport code or city. Returns available flights with their booking classes and prices.",
+      "Search for available Air Agentic flights. Optionally filter by departure (from) and arrival (to) airport code or city. Returns available flights with their booking classes and prices.",
     inputSchema: searchFlightsSchema as InputSchema,
     execute: async (params) => {
       const { from, to } = searchFlightsParams.parse(params);
@@ -151,7 +151,7 @@ export async function registerWebMCPTools() {
             {
               item_id: class_id,
               item_name: `${flight.fromCode} → ${flight.toCode} · ${flightClass.name}`,
-              item_brand: "AgentAir",
+              item_brand: "Air Agentic",
               item_category: flightClass.name,
               price: flightClass.price,
               quantity: passengers,
@@ -227,7 +227,7 @@ export async function registerWebMCPTools() {
           items: state.items.map((i) => ({
             item_id: i.flightClass.id,
             item_name: `${i.flight.fromCode} → ${i.flight.toCode} · ${i.flightClass.name}`,
-            item_brand: "AgentAir",
+            item_brand: "Air Agentic",
             item_category: i.flightClass.name,
             price: i.flightClass.price,
             quantity: i.passengers,
@@ -348,7 +348,7 @@ export async function registerWebMCPTools() {
           items: state.items.map((i) => ({
             item_id: i.flightClass.id,
             item_name: `${i.flight.fromCode} → ${i.flight.toCode} · ${i.flightClass.name}`,
-            item_brand: "AgentAir",
+            item_brand: "Air Agentic",
             item_category: i.flightClass.name,
             price: i.flightClass.price,
             quantity: i.passengers,

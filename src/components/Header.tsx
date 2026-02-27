@@ -10,7 +10,7 @@ export default function Header() {
         <a href="/" className="flex items-center gap-2 group">
           <Plane size={15} className="text-white -rotate-45" />
           <span className="text-white font-semibold text-sm tracking-tight">
-            AgentAir
+            Air Agentic
           </span>
         </a>
 

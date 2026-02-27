@@ -33,7 +33,7 @@ export const flights: Flight[] = [
     departure: '08:00',
     arrival: '11:30',
     duration: '5h 30m',
-    aircraft: 'AgentAir A380',
+    aircraft: 'Air Agentic A380',
     classes: [
       {
         id: 'AA101-ECO',
@@ -74,7 +74,7 @@ export const flights: Flight[] = [
     departure: '14:15',
     arrival: '17:45',
     duration: '5h 30m',
-    aircraft: 'AgentAir B787',
+    aircraft: 'Air Agentic B787',
     classes: [
       {
         id: 'AA205-ECO',

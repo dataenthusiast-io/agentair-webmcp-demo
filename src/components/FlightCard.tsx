@@ -25,7 +25,7 @@ function ClassRow({ flight, cls }: { flight: Flight; cls: FlightClass }) {
             {
               item_id: cls.id,
               item_name: `${flight.fromCode} → ${flight.toCode} · ${cls.name}`,
-              item_brand: 'AgentAir',
+              item_brand: 'Air Agentic',
               item_category: cls.name,
               price: cls.price,
               quantity: 1,

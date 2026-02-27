@@ -35,7 +35,7 @@ function BookingSummary({ onCheckout }: { onCheckout: () => void }) {
             {
               item_id: item.flightClass.id,
               item_name: `${item.flight.fromCode} → ${item.flight.toCode} · ${item.flightClass.name}`,
-              item_brand: 'AgentAir',
+              item_brand: 'Air Agentic',
               item_category: item.flightClass.name,
               price: item.flightClass.price,
               quantity: item.passengers,
@@ -67,7 +67,7 @@ function BookingSummary({ onCheckout }: { onCheckout: () => void }) {
         items: items.map((i) => ({
           item_id: i.flightClass.id,
           item_name: `${i.flight.fromCode} → ${i.flight.toCode} · ${i.flightClass.name}`,
-          item_brand: 'AgentAir',
+          item_brand: 'Air Agentic',
           item_category: i.flightClass.name,
           price: i.flightClass.price,
           quantity: i.passengers,
@@ -244,7 +244,7 @@ function CheckoutForm({ onBack }: { onBack: () => void }) {
         items: items.map((i) => ({
           item_id: i.flightClass.id,
           item_name: `${i.flight.fromCode} → ${i.flight.toCode} · ${i.flightClass.name}`,
-          item_brand: 'AgentAir',
+          item_brand: 'Air Agentic',
           item_category: i.flightClass.name,
           price: i.flightClass.price,
           quantity: i.passengers,
