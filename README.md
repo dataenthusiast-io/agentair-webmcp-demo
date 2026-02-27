@@ -17,7 +17,7 @@ Every action, whether triggered by a user click or an agent tool call, emits GA4
 This means a single GTM + GA4 setup gives you:
 
 - Standard e-commerce funnel reports that include agent-driven transactions
-- The ability to segment **any** metric by `interaction_source: "ui"` vs `"agent"`
+- The ability to segment **any** metric by `interaction_source: "human"` vs `"agent"`
 - Conversion rate, average order value, and drop-off comparisons between humans and AI agents
 
 ---
@@ -46,10 +46,10 @@ flowchart LR
 
     subgraph GA4["Google Analytics 4"]
         REPORT["Reports &\nExplorations"]
-        DIM["Custom dimension:\ninteraction_source\n= ui | agent"]
+        DIM["Custom dimension:\ninteraction_source\n= human | agent"]
     end
 
-    U_CLICK -->|"interaction_source: ui"| HANDLER
+    U_CLICK -->|"interaction_source: human"| HANDLER
     A_TOOL -->|"interaction_source: agent"| HANDLER
     HANDLER --> DL
     DL --> TRIGGER
@@ -77,7 +77,9 @@ Add your GA4 Measurement ID to `.env`:
 GA4_ID=G-XXXXXXXXXX
 ```
 
-The standard gtag.js snippet is injected server-side automatically. If `GA4_ID` is not set the app runs without analytics — no errors, events are simply not sent.
+If `GA4_ID` is not set the app runs without analytics — no errors, events are simply not sent.
+
+> **Privacy note** — `gtag.js` is never loaded until the user (or agent) explicitly grants consent. Before that point, all gtag calls accumulate in the in-memory `dataLayer` queue. When consent is granted, the script loads, processes the queue in order (consent default → consent update → config → buffered events), and every hit reaches GA4 already tagged as consented.
 
 ### Build for production
 
@@ -89,17 +91,17 @@ pnpm build
 
 ## Data model
 
-### The one custom dimension
+### Custom dimensions
 
-Configure this once in GA4 and GTM, then every event in the table below becomes segmentable by source:
+Configure these once in GA4 (Admin → Custom definitions → Custom dimensions), then every event becomes segmentable by them:
 
-| Setting | Value |
-|---|---|
-| Name | Interaction Source |
-| Parameter name | `interaction_source` |
-| Scope | Event |
-| Type | String |
-| Values | `"ui"` · `"agent"` |
+| Name | Parameter name | Scope | Values |
+|---|---|---|---|
+| Interaction Source | `interaction_source` | Event | `"human"` · `"agent"` |
+| Consent Status | `consent_status` | Event | `"pending"` · `"granted"` · `"denied"` |
+| Consent Timestamp | `consent_timestamp` | Event | ISO-8601 string (omitted while pending) |
+
+`consent_status` and `consent_timestamp` are injected automatically into **every** event by `analytics.ts` — no call site needs to set them manually.
 
 ### Event reference
 
@@ -148,8 +150,15 @@ All items in ecommerce events share a consistent structure:
   "seat_type": "window",
   "class_id": "AA101-BIZ",
   "flight_id": "AA101",
+  "departure_time": "08:00",
+  "arrival_time": "11:30",
+  "origin": "JFK",
+  "destination": "LAX",
+  "ond": "JFK|LAX",
   "preference": "window",
-  "interaction_source": "agent"
+  "interaction_source": "agent",
+  "consent_status": "granted",
+  "consent_timestamp": "2026-02-27T10:00:00.000Z"
 }
 ```
 
@@ -163,8 +172,16 @@ All items in ecommerce events share a consistent structure:
   "search_term": "JFK → LAX",
   "from": "JFK",
   "to": "LAX",
+  "origin": "JFK",
+  "destination": "LAX",
+  "ond": "JFK|LAX",
   "results_count": 2,
-  "interaction_source": "ui"
+  "pax": 1,
+  "adult": 1,
+  "infant": 0,
+  "interaction_source": "human",
+  "consent_status": "granted",
+  "consent_timestamp": "2026-02-27T10:00:00.000Z"
 }
 ```
 
@@ -212,15 +229,19 @@ The agent funnel is shorter and skips browsing steps (`view_item_list`, `select_
 
 ### WebMCP tools
 
-The app registers five MCP tools on `navigator.modelContext` that any WebMCP-compatible AI agent can discover and call:
+The app registers seven MCP tools on `navigator.modelContext` that any WebMCP-compatible AI agent can discover and call:
 
 | Tool | Description |
 |---|---|
+| `get_consent` | Read the current analytics consent state — agents must call this first |
+| `ask_consent` | Record the user's consent decision (`"granted"` or `"denied"`) after asking |
 | `search_flights` | Search available flights by origin/destination |
 | `add_to_booking` | Add a flight class to the current booking |
 | `get_booking` | Read the current booking summary and total |
 | `select_seat` | Pick a specific seat or auto-select by preference |
 | `checkout` | Open and optionally auto-complete the checkout form |
+
+The two consent tools enforce a required protocol: an agent calls `get_consent` at session start; if the state is `"pending"` it asks the user and records the answer via `ask_consent` before proceeding. If consent is already `"granted"` or `"denied"`, the agent skips the prompt entirely.
 
 ### Analytics implementation
 
@@ -229,7 +250,30 @@ The app registers five MCP tools on `navigator.modelContext` that any WebMCP-com
 - **`pushDataLayerEvent(name, payload)`** — for non-ecommerce events (`search`, `seat_selected`)
 - **`pushEcommerceEvent(name, ecommerce, extra)`** — clears `ecommerce: null` first, then pushes the event; used for all ecommerce events
 
-GTM is initialised in `src/routes/__root.tsx` via the server-rendered shell component, ensuring the snippet is in place before any client-side code runs.
+Both functions automatically append `consent_status` and `consent_timestamp` to every payload via `buildConsentParams()`. Call sites only need to supply `interaction_source` and domain-specific fields.
+
+### Consent implementation
+
+`src/lib/consent.ts` manages the full consent lifecycle:
+
+| Function | Description |
+|---|---|
+| `initConsent()` | Called once on client mount. Syncs localStorage → Zustand store and loads `gtag.js` if already granted. |
+| `grantConsent()` | Writes `"granted"` to localStorage, updates GA4 consent mode, dynamically loads `gtag.js`, and flushes the buffered event queue. |
+| `denyConsent()` | Writes `"denied"` to localStorage and drops all buffered events. `gtag.js` is never loaded. |
+| `bufferOrDrop(event)` | Called before every `gtag()` call. Buffers events when pending, drops them when denied, passes through when granted. |
+| `getConsentState()` | Reads the current state directly from localStorage — used as the authoritative source on the client. |
+
+**SSR note:** the consent banner is rendered client-side only. On the server `consentState` is always `"pending"` (no `localStorage`), so rendering the banner in SSR would produce a stale hydration mismatch for returning users. Instead, `ConsentBanner` reads from `localStorage` directly after mount and skips rendering entirely during SSR and initial hydration.
+
+The consent state machine:
+
+```
+pending  ──grant──▶  granted  (gtag.js loaded, buffer flushed)
+pending  ──deny───▶  denied   (buffer dropped, gtag.js never loads)
+```
+
+Once a decision is recorded it persists in `localStorage` across sessions. Agents respect it too — `get_consent` returns the current state and `ask_consent` refuses to overwrite a non-pending decision.
 
 ---
 
@@ -237,10 +281,8 @@ GTM is initialised in `src/routes/__root.tsx` via the server-rendered shell comp
 
 1. **Add your Measurement ID** to `.env`: `GA4_ID=G-XXXXXXXXXX`
 
-2. **Register the custom dimension** in GA4:
-   - Admin → Custom definitions → Custom dimensions → Create
-   - Name: `Interaction Source` · Parameter name: `interaction_source` · Scope: Event
+2. **Register custom dimensions** in GA4 (Admin → Custom definitions → Custom dimensions → Create) for each of the three dimensions listed in the data model: `interaction_source`, `consent_status`, `consent_timestamp`.
 
 3. **Enable Enhanced Ecommerce** — GA4 supports it natively; no extra configuration needed. Events like `add_to_cart`, `begin_checkout`, and `purchase` are recognised automatically.
 
-4. **Verify** with GA4 DebugView — filter by `interaction_source` to confirm both `"ui"` and `"agent"` values appear.
+4. **Verify** with GA4 DebugView — filter by `interaction_source` to confirm both `"human"` and `"agent"` values appear, and that `consent_status` is present on every hit.
