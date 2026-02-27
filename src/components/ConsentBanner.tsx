@@ -1,10 +1,25 @@
+import { useState, useEffect } from 'react'
 import { useStore } from '../lib/store'
-import { grantConsent, denyConsent } from '../lib/consent'
+import { grantConsent, denyConsent, getConsentState } from '../lib/consent'
+import type { ConsentState } from '../lib/consent'
 
 export default function ConsentBanner() {
-  const consentState = useStore((s) => s.consentState)
+  // null = not yet mounted; skip rendering during SSR and initial hydration
+  // to avoid a mismatch between the server-rendered HTML (always 'pending')
+  // and the actual localStorage value on the client.
+  const [consent, setConsent] = useState<ConsentState | null>(null)
 
-  if (consentState !== 'pending') return null
+  useEffect(() => {
+    setConsent(getConsentState())
+  }, [])
+
+  // Stay in sync when the user clicks Accept / Decline
+  const storeState = useStore((s) => s.consentState)
+  useEffect(() => {
+    if (consent !== null) setConsent(storeState)
+  }, [storeState])
+
+  if (consent !== 'pending') return null
 
   return (
     <div className="fixed bottom-0 inset-x-0 z-50 border-t border-neutral-200 bg-white/95 backdrop-blur-sm">

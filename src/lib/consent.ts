@@ -111,6 +111,8 @@ export function bufferOrDrop(event: BufferedEvent): boolean {
 export function initConsent(): void {
   if (typeof window === 'undefined') return
   const state = getConsentState()
+  // Sync localStorage → store so the banner hides correctly after SSR hydration.
+  useStore.getState().setConsentState(state)
   if (state === 'granted') {
     applyGA4Consent('granted')
     loadGtagScript()
