@@ -1,12 +1,11 @@
 import { X, ShoppingBag, CreditCard, Trash2, LayoutGrid, ArrowLeft, Lock } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { pushEcommerceEvent } from '../lib/analytics'
+import { pushEcommerceEvent, buildRouteParams, buildFlightItemParams } from '../lib/analytics'
 import { useEffect, useRef, useState } from 'react'
 
 // ─── Booking summary view ─────────────────────────────────────────────────────
 
 export default function BookingSidebar() {
-  const items = useStore((s) => s.items)
   const checkoutOpen = useStore((s) => s.checkoutOpen)
   const setCheckoutOpen = useStore((s) => s.setCheckoutOpen)
 
@@ -40,15 +39,26 @@ function BookingSummary({ onCheckout }: { onCheckout: () => void }) {
               item_category: item.flightClass.name,
               price: item.flightClass.price,
               quantity: item.passengers,
+              ...buildFlightItemParams({
+                flightId: item.flight.id,
+                departure: item.flight.departure,
+                arrival: item.flight.arrival,
+                passengers: item.passengers,
+                className: item.flightClass.name,
+              }),
             },
           ],
         },
-        { interaction_source: 'ui' }
+        {
+          interaction_source: 'human',
+          ...buildRouteParams(item.flight.fromCode, item.flight.toCode),
+        }
       )
     }
   }
 
   const handleCheckout = () => {
+    const firstItem = items[0]
     pushEcommerceEvent(
       'begin_checkout',
       {
@@ -61,9 +71,19 @@ function BookingSummary({ onCheckout }: { onCheckout: () => void }) {
           item_category: i.flightClass.name,
           price: i.flightClass.price,
           quantity: i.passengers,
+          ...buildFlightItemParams({
+            flightId: i.flight.id,
+            departure: i.flight.departure,
+            arrival: i.flight.arrival,
+            passengers: i.passengers,
+            className: i.flightClass.name,
+          }),
         })),
       },
-      { interaction_source: 'ui' }
+      {
+        interaction_source: 'human',
+        ...(firstItem ? buildRouteParams(firstItem.flight.fromCode, firstItem.flight.toCode) : {}),
+      }
     )
     onCheckout()
   }
@@ -214,6 +234,7 @@ function CheckoutForm({ onBack }: { onBack: () => void }) {
   const handlePay = () => {
     if (!valid || submitting) return
     setSubmitting(true)
+    const purchaseFirstItem = items[0]
     pushEcommerceEvent(
       'purchase',
       {
@@ -228,10 +249,18 @@ function CheckoutForm({ onBack }: { onBack: () => void }) {
           price: i.flightClass.price,
           quantity: i.passengers,
           ...(i.seat && { item_variant: i.seat.label }),
+          ...buildFlightItemParams({
+            flightId: i.flight.id,
+            departure: i.flight.departure,
+            arrival: i.flight.arrival,
+            passengers: i.passengers,
+            className: i.flightClass.name,
+          }),
         })),
       },
       {
-        interaction_source: prefill.autoSubmit ? 'agent' : 'ui',
+        interaction_source: prefill.autoSubmit ? 'agent' : 'human',
+        ...(purchaseFirstItem ? buildRouteParams(purchaseFirstItem.flight.fromCode, purchaseFirstItem.flight.toCode) : {}),
       }
     )
     setTimeout(() => {

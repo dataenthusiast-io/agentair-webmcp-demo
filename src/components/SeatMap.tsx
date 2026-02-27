@@ -42,7 +42,7 @@ export default function SeatMap({ flightId, classId, className, preSelected, onC
       seat_label: seat.label,
       seat_type: seat.type,
       class_id: classId,
-      interaction_source: 'ui',
+      interaction_source: 'human',
     })
   }
 
@@ -76,7 +76,7 @@ export default function SeatMap({ flightId, classId, className, preSelected, onC
           },
         ],
       },
-      { interaction_source: 'ui' }
+      { interaction_source: 'human' }
     )
     onClose()
   }

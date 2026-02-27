@@ -3,6 +3,12 @@ import { useStore } from './store'
 export type ConsentState = 'pending' | 'granted' | 'denied'
 
 export const CONSENT_STORAGE_KEY = 'analytics_consent'
+export const CONSENT_TIMESTAMP_KEY = 'analytics_consent_timestamp'
+
+export function getConsentTimestamp(): string | null {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem(CONSENT_TIMESTAMP_KEY)
+}
 
 export type BufferedEvent =
   | { kind: 'standard'; name: string; payload: Record<string, unknown> }
@@ -42,19 +48,26 @@ function applyGA4Consent(state: 'granted' | 'denied') {
 }
 
 function flushBuffer() {
+  const timestamp = getConsentTimestamp()
+  const consentParams = {
+    consent_status: 'granted' as const,
+    ...(timestamp && { consent_timestamp: timestamp }),
+  }
   let event: BufferedEvent | undefined
   while ((event = buffer.shift())) {
     if (event.kind === 'standard') {
-      window.gtag?.('event', event.name, event.payload)
+      window.gtag?.('event', event.name, { ...event.payload, ...consentParams })
     } else {
-      window.gtag?.('event', event.name, { ...event.ecommerce, ...event.extra })
+      window.gtag?.('event', event.name, { ...event.ecommerce, ...event.extra, ...consentParams })
     }
   }
 }
 
 export function grantConsent(): void {
   if (typeof window === 'undefined') return
+  const ts = new Date().toISOString()
   localStorage.setItem(CONSENT_STORAGE_KEY, 'granted')
+  localStorage.setItem(CONSENT_TIMESTAMP_KEY, ts)
   // Update consent state in the dataLayer queue first, then load the script.
   // When gtag.js processes the queue it will see: default denied → update
   // granted → js init → config → buffered events. All hits are sent with
@@ -67,7 +80,9 @@ export function grantConsent(): void {
 
 export function denyConsent(): void {
   if (typeof window === 'undefined') return
+  const ts = new Date().toISOString()
   localStorage.setItem(CONSENT_STORAGE_KEY, 'denied')
+  localStorage.setItem(CONSENT_TIMESTAMP_KEY, ts)
   // gtag.js was never loaded, so no GA4 call needed — just clean up.
   buffer.length = 0
   useStore.getState().setConsentState('denied')

@@ -2,7 +2,7 @@ import { Check, ChevronRight, LayoutGrid } from 'lucide-react'
 import { useStore } from '../lib/store'
 import type { Flight, FlightClass } from '../lib/flights'
 import SeatMap from './SeatMap'
-import { pushEcommerceEvent } from '../lib/analytics'
+import { pushEcommerceEvent, buildRouteParams, buildFlightItemParams } from '../lib/analytics'
 
 function ClassRow({ flight, cls }: { flight: Flight; cls: FlightClass }) {
   const bookingItem = useStore((s) => s.items.find((i) => i.flightClass.id === cls.id))
@@ -29,10 +29,20 @@ function ClassRow({ flight, cls }: { flight: Flight; cls: FlightClass }) {
               item_category: cls.name,
               price: cls.price,
               quantity: 1,
+              ...buildFlightItemParams({
+                flightId: flight.id,
+                departure: flight.departure,
+                arrival: flight.arrival,
+                passengers: 1,
+                className: cls.name,
+              }),
             },
           ],
         },
-        { interaction_source: 'ui' }
+        {
+          interaction_source: 'human',
+          ...buildRouteParams(flight.fromCode, flight.toCode),
+        }
       )
     }
   }

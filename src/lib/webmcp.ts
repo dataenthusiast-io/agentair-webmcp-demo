@@ -1,6 +1,6 @@
 import type { InputSchema } from "@mcp-b/global";
 import { z } from "zod";
-import { pushDataLayerEvent, pushEcommerceEvent } from "./analytics";
+import { pushDataLayerEvent, pushEcommerceEvent, buildRouteParams, buildFlightItemParams } from "./analytics";
 import { grantConsent, denyConsent, getConsentState } from "./consent";
 import { useStore } from "./store";
 import { getSeatLayout, findBestSeat, findSeatByLabel } from "./seats";
@@ -70,6 +70,7 @@ export async function registerWebMCPTools() {
 
       // Expand search results on the page and record agent activity
       state.setHasSearched(true);
+      state.setLastSearch({ from, to, passengers: 1 });
       state.addAgentActivity({
         tool: "search_flights",
         message: "Agent searched for flights",
@@ -80,7 +81,11 @@ export async function registerWebMCPTools() {
         search_term: [from, to].filter(Boolean).join(" → ") || "any",
         ...(from !== undefined && { from }),
         ...(to !== undefined && { to }),
+        ...buildRouteParams(from, to),
         results_count: results.length,
+        pax: 1,
+        adult: 1,
+        infant: 0,
         interaction_source: "agent",
       });
       return {
@@ -150,10 +155,20 @@ export async function registerWebMCPTools() {
               item_category: flightClass.name,
               price: flightClass.price,
               quantity: passengers,
+              ...buildFlightItemParams({
+                flightId: flight.id,
+                departure: flight.departure,
+                arrival: flight.arrival,
+                passengers,
+                className: flightClass.name,
+              }),
             },
           ],
         },
-        { interaction_source: "agent" }
+        {
+          interaction_source: "agent",
+          ...buildRouteParams(flight.fromCode, flight.toCode),
+        }
       );
       return {
         content: [
@@ -203,6 +218,7 @@ export async function registerWebMCPTools() {
             : `${state.getItemCount()} item${state.getItemCount() !== 1 ? "s" : ""} · Total $${state.getTotal().toLocaleString()}`,
       });
 
+      const firstItem = state.items[0]
       pushEcommerceEvent(
         "view_cart",
         {
@@ -215,9 +231,19 @@ export async function registerWebMCPTools() {
             item_category: i.flightClass.name,
             price: i.flightClass.price,
             quantity: i.passengers,
+            ...buildFlightItemParams({
+              flightId: i.flight.id,
+              departure: i.flight.departure,
+              arrival: i.flight.arrival,
+              passengers: i.passengers,
+              className: i.flightClass.name,
+            }),
           })),
         },
-        { interaction_source: "agent" }
+        {
+          interaction_source: "agent",
+          ...(firstItem ? buildRouteParams(firstItem.flight.fromCode, firstItem.flight.toCode) : {}),
+        }
       );
       return {
         content: [
@@ -313,6 +339,7 @@ export async function registerWebMCPTools() {
           : `Pre-filled ${[passenger_name, email].filter(Boolean).join(", ")}`,
       });
 
+      const checkoutFirstItem = state.items[0]
       pushEcommerceEvent(
         "begin_checkout",
         {
@@ -325,9 +352,19 @@ export async function registerWebMCPTools() {
             item_category: i.flightClass.name,
             price: i.flightClass.price,
             quantity: i.passengers,
+            ...buildFlightItemParams({
+              flightId: i.flight.id,
+              departure: i.flight.departure,
+              arrival: i.flight.arrival,
+              passengers: i.passengers,
+              className: i.flightClass.name,
+            }),
           })),
         },
-        { interaction_source: "agent" }
+        {
+          interaction_source: "agent",
+          ...(checkoutFirstItem ? buildRouteParams(checkoutFirstItem.flight.fromCode, checkoutFirstItem.flight.toCode) : {}),
+        }
       );
 
       return {
@@ -432,7 +469,10 @@ export async function registerWebMCPTools() {
         seat_type: selected.type,
         class_id,
         flight_id: flight.id,
+        departure_time: flight.departure,
+        arrival_time: flight.arrival,
         preference: preference ?? null,
+        ...buildRouteParams(flight.fromCode, flight.toCode),
         interaction_source: "agent",
       });
 

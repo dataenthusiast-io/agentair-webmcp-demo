@@ -39,10 +39,18 @@ export interface BookingItem {
   seat?: SelectedSeat
 }
 
+export interface LastSearch {
+  from?: string
+  to?: string
+  passengers?: number
+  date?: string
+}
+
 interface StoreState {
   items: BookingItem[]
   flights: Flight[]
   hasSearched: boolean
+  lastSearch: LastSearch
   agentActivities: AgentActivity[]
   activeSeatMap: string | null
   checkoutOpen: boolean
@@ -50,6 +58,7 @@ interface StoreState {
   consentState: ConsentState
 
   setHasSearched: (v: boolean) => void
+  setLastSearch: (s: LastSearch) => void
   setSeatMapOpen: (classId: string | null) => void
   setCheckoutOpen: (v: boolean) => void
   setCheckoutPrefill: (data: CheckoutPrefill) => void
@@ -83,6 +92,7 @@ export const useStore = create<StoreState>((set, get) => ({
   items: [],
   flights,
   hasSearched: false,
+  lastSearch: {},
   agentActivities: [],
   activeSeatMap: null,
   checkoutOpen: false,
@@ -90,6 +100,7 @@ export const useStore = create<StoreState>((set, get) => ({
   consentState: readStoredConsent(),
 
   setHasSearched: (v) => set({ hasSearched: v }),
+  setLastSearch: (s) => set({ lastSearch: s }),
   setSeatMapOpen: (classId) => set({ activeSeatMap: classId }),
   setCheckoutOpen: (v) => set({ checkoutOpen: v }),
   setCheckoutPrefill: (data) => set({ checkoutPrefill: data }),

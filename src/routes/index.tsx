@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
 import { Search, ArrowRight, Plane } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { pushDataLayerEvent, pushEcommerceEvent } from '../lib/analytics'
+import { pushDataLayerEvent, pushEcommerceEvent, buildRouteParams, buildFlightItemParams } from '../lib/analytics'
 import { flights } from '../lib/flights'
 import FlightCard from '../components/FlightCard'
 import BookingSidebar from '../components/Cart'
@@ -15,20 +15,27 @@ const DEMO_FROM = 'JFK'
 const DEMO_TO = 'LAX'
 const DEMO_DATE = '2026-03-15'
 
-function SearchForm({ onSearch }: { onSearch: () => void }) {
+function SearchForm({ onSearch }: { onSearch: (ctx: { from: string; to: string; passengers: number; date: string }) => void }) {
   const [from, setFrom] = useState(DEMO_FROM)
   const [to, setTo] = useState(DEMO_TO)
   const [date, setDate] = useState(DEMO_DATE)
   const [passengers, setPassengers] = useState(1)
 
   const handleSearch = () => {
+    const results = useStore.getState().searchFlights(from || undefined, to || undefined)
     pushDataLayerEvent('search', {
       search_term: `${from} → ${to}`,
+      ...(from && { from }),
+      ...(to && { to }),
+      ...buildRouteParams(from || undefined, to || undefined),
+      results_count: results.length,
       date,
-      passengers,
-      interaction_source: 'ui',
+      pax: passengers,
+      adult: passengers,
+      infant: 0,
+      interaction_source: 'human',
     })
-    onSearch()
+    onSearch({ from, to, passengers, date })
   }
 
   const inputCls =
@@ -99,9 +106,17 @@ function SearchForm({ onSearch }: { onSearch: () => void }) {
 function App() {
   const hasSearched = useStore((s) => s.hasSearched)
   const setHasSearched = useStore((s) => s.setHasSearched)
+  const setLastSearch = useStore((s) => s.setLastSearch)
+  const lastSearch = useStore((s) => s.lastSearch)
+
+  const handleSearch = (ctx: { from: string; to: string; passengers: number; date: string }) => {
+    setLastSearch({ from: ctx.from, to: ctx.to, passengers: ctx.passengers, date: ctx.date })
+    setHasSearched(true)
+  }
 
   useEffect(() => {
     if (!hasSearched) return
+    const passengers = lastSearch.passengers ?? 1
     pushEcommerceEvent(
       'view_item_list',
       {
@@ -117,10 +132,20 @@ function App() {
             item_list_name: 'Flight Results',
             index,
             price: cls.price,
+            ...buildFlightItemParams({
+              flightId: f.id,
+              departure: f.departure,
+              arrival: f.arrival,
+              passengers,
+              className: cls.name,
+            }),
           }))
         ).flat(),
       },
-      { interaction_source: 'ui' }
+      {
+        interaction_source: 'human',
+        ...buildRouteParams(lastSearch.from, lastSearch.to),
+      }
     )
   }, [hasSearched])
 
@@ -141,7 +166,7 @@ function App() {
             The only airline your AI agent can book natively — no API keys, no
             integrations, just WebMCP.
           </p>
-          <SearchForm onSearch={() => setHasSearched(true)} />
+          <SearchForm onSearch={handleSearch} />
         </div>
       </section>
 
