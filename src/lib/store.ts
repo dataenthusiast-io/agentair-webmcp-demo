@@ -15,7 +15,8 @@ export interface AgentActivity {
     | 'get_booking'
     | 'select_seat'
     | 'checkout'
-    | 'grant_analytics_consent'
+    | 'get_consent'
+    | 'ask_consent'
   message: string
   detail?: string
   timestamp: number

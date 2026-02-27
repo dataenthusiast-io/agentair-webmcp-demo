@@ -1,7 +1,7 @@
 import type { InputSchema } from "@mcp-b/global";
 import { z } from "zod";
 import { pushDataLayerEvent, pushEcommerceEvent } from "./analytics";
-import { grantConsent } from "./consent";
+import { grantConsent, denyConsent, getConsentState } from "./consent";
 import { useStore } from "./store";
 import { getSeatLayout, findBestSeat, findSeatByLabel } from "./seats";
 
@@ -457,34 +457,37 @@ export async function registerWebMCPTools() {
     },
   });
 
+  // --- Consent tools ---
+  // Two tools form the consent workflow. The agent must always call
+  // consent_check first; its response embeds the exact next step to take.
+
   mc.registerTool({
-    name: "grant_analytics_consent",
-    description: `Grants analytics tracking consent for this session on behalf of the user.
-
-GDPR COMPLIANCE — you MUST follow these steps before calling this tool:
-1. Ask the user explicitly: "This site collects anonymous analytics data (flight searches, seat selections, bookings) to improve the service. No personal data is shared. Do you consent to analytics tracking?"
-2. Wait for their response.
-3. Only call this tool if the user gives clear, affirmative consent (e.g. "yes", "sure", "okay", "I agree").
-4. If the user declines, is ambiguous, or does not respond — do NOT call this tool.
-
-Calling this tool without prior explicit user consent violates GDPR.`,
+    name: "get_consent",
+    description:
+      "Returns the current analytics consent state for this session. " +
+      "Call this ONCE at the start of every session before taking any other action. " +
+      "The response tells you exactly what to do next.",
     inputSchema: { type: "object" as const, properties: {} } as InputSchema,
     execute: async () => {
-      grantConsent();
-      const state = useStore.getState();
-      state.addAgentActivity({
-        tool: "grant_analytics_consent",
-        message: "Analytics consent granted",
-        detail: "Buffered events have been flushed to GA4",
-      });
+      const consentState = getConsentState();
+      const instructions: Record<string, string> = {
+        granted:
+          "Consent already granted. Proceed with all actions normally — no consent prompt needed.",
+        denied:
+          "The user has previously declined analytics tracking. Do not ask for consent again. Proceed with all actions normally.",
+        pending:
+          "Consent has not been decided yet. Before doing anything else, ask the user: " +
+          '"This site collects anonymous analytics (searches, seat selections, bookings) ' +
+          'to improve the service. No personal data is shared. Do you agree to analytics tracking?" ' +
+          'Then call ask_consent with decision="granted" if they agree, or decision="denied" if they decline or are unsure.',
+      };
       return {
         content: [
           {
             type: "text" as const,
             text: JSON.stringify({
-              success: true,
-              message:
-                "Analytics consent has been granted. All buffered events have been sent to GA4 and future events will be tracked.",
+              consent_state: consentState,
+              next_step: instructions[consentState],
             }),
           },
         ],
@@ -492,5 +495,83 @@ Calling this tool without prior explicit user consent violates GDPR.`,
     },
   });
 
-  return 6;
+  mc.registerTool({
+    name: "ask_consent",
+    description:
+      "Records the user's analytics consent decision for this session. " +
+      "Only call this after get_consent returned 'pending' and you have asked the user. " +
+      "Pass decision='granted' if the user agreed, or decision='denied' if they declined or were unsure. " +
+      "Never call this without first asking the user explicitly.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        decision: {
+          type: "string" as const,
+          enum: ["granted", "denied"],
+          description: "The user's consent decision: 'granted' or 'denied'.",
+        },
+      },
+      required: ["decision"],
+    } as InputSchema,
+    execute: async (params) => {
+      const { decision } = params as { decision: "granted" | "denied" };
+      const consentState = getConsentState();
+
+      if (consentState !== "pending") {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                success: false,
+                message: `Consent is already set to '${consentState}'. No action taken.`,
+              }),
+            },
+          ],
+        };
+      }
+
+      if (decision === "granted") {
+        grantConsent();
+        useStore.getState().addAgentActivity({
+          tool: "ask_consent",
+          message: "Analytics consent granted",
+          detail: "Buffered events flushed to GA4",
+        });
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                success: true,
+                message:
+                  "Consent granted. Buffered events sent to GA4; future events will be tracked.",
+              }),
+            },
+          ],
+        };
+      } else {
+        denyConsent();
+        useStore.getState().addAgentActivity({
+          tool: "ask_consent",
+          message: "Analytics consent denied",
+          detail: "No data will be sent to GA4",
+        });
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                success: true,
+                message:
+                  "Consent denied. No analytics data will be collected. Do not ask again.",
+              }),
+            },
+          ],
+        };
+      }
+    },
+  });
+
+  return 7;
 }
