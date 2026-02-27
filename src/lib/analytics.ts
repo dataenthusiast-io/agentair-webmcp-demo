@@ -1,3 +1,5 @@
+import { bufferOrDrop } from './consent'
+
 declare global {
   interface Window {
     dataLayer?: unknown[]
@@ -29,6 +31,7 @@ export function pushDataLayerEvent(
   payload: Record<string, unknown> = {}
 ): void {
   if (typeof window === 'undefined') return
+  if (bufferOrDrop({ kind: 'standard', name: eventName, payload })) return
   window.gtag?.('event', eventName, payload)
 }
 
@@ -49,5 +52,6 @@ export function pushEcommerceEvent(
   extra: Record<string, unknown> = {}
 ): void {
   if (typeof window === 'undefined') return
+  if (bufferOrDrop({ kind: 'ecommerce', name: eventName, ecommerce, extra })) return
   window.gtag?.('event', eventName, { ...ecommerce, ...extra })
 }

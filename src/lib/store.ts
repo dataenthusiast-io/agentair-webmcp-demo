@@ -2,12 +2,20 @@ import { create } from 'zustand'
 import { flights } from './flights'
 import type { Flight, FlightClass } from './flights'
 import type { SelectedSeat } from './seats'
+import type { ConsentState } from './consent'
+import { CONSENT_STORAGE_KEY } from './consent'
 
 export type { SelectedSeat }
 
 export interface AgentActivity {
   id: string
-  tool: 'search_flights' | 'add_to_booking' | 'get_booking' | 'select_seat' | 'checkout'
+  tool:
+    | 'search_flights'
+    | 'add_to_booking'
+    | 'get_booking'
+    | 'select_seat'
+    | 'checkout'
+    | 'grant_analytics_consent'
   message: string
   detail?: string
   timestamp: number
@@ -38,11 +46,13 @@ interface StoreState {
   activeSeatMap: string | null
   checkoutOpen: boolean
   checkoutPrefill: CheckoutPrefill
+  consentState: ConsentState
 
   setHasSearched: (v: boolean) => void
   setSeatMapOpen: (classId: string | null) => void
   setCheckoutOpen: (v: boolean) => void
   setCheckoutPrefill: (data: CheckoutPrefill) => void
+  setConsentState: (state: ConsentState) => void
   addAgentActivity: (activity: Omit<AgentActivity, 'id' | 'timestamp'>) => void
   dismissAgentActivity: (id: string) => void
 
@@ -63,6 +73,11 @@ interface StoreState {
 
 let activityCounter = 0
 
+function readStoredConsent(): ConsentState {
+  if (typeof window === 'undefined') return 'pending'
+  return (localStorage.getItem(CONSENT_STORAGE_KEY) as ConsentState) ?? 'pending'
+}
+
 export const useStore = create<StoreState>((set, get) => ({
   items: [],
   flights,
@@ -71,11 +86,13 @@ export const useStore = create<StoreState>((set, get) => ({
   activeSeatMap: null,
   checkoutOpen: false,
   checkoutPrefill: {},
+  consentState: readStoredConsent(),
 
   setHasSearched: (v) => set({ hasSearched: v }),
   setSeatMapOpen: (classId) => set({ activeSeatMap: classId }),
   setCheckoutOpen: (v) => set({ checkoutOpen: v }),
   setCheckoutPrefill: (data) => set({ checkoutPrefill: data }),
+  setConsentState: (state) => set({ consentState: state }),
 
   addAgentActivity: (activity) => {
     const id = `act-${++activityCounter}`

@@ -8,6 +8,7 @@ const toolLabel: Record<AgentActivity['tool'], string> = {
   get_booking: 'get_booking',
   select_seat: 'select_seat',
   checkout: 'checkout',
+  grant_analytics_consent: 'grant_analytics_consent',
 }
 
 function Toast({

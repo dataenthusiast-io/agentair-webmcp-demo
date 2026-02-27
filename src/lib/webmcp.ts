@@ -1,6 +1,7 @@
 import type { InputSchema } from "@mcp-b/global";
 import { z } from "zod";
 import { pushDataLayerEvent, pushEcommerceEvent } from "./analytics";
+import { grantConsent } from "./consent";
 import { useStore } from "./store";
 import { getSeatLayout, findBestSeat, findSeatByLabel } from "./seats";
 
@@ -456,5 +457,40 @@ export async function registerWebMCPTools() {
     },
   });
 
-  return 5;
+  mc.registerTool({
+    name: "grant_analytics_consent",
+    description: `Grants analytics tracking consent for this session on behalf of the user.
+
+GDPR COMPLIANCE — you MUST follow these steps before calling this tool:
+1. Ask the user explicitly: "This site collects anonymous analytics data (flight searches, seat selections, bookings) to improve the service. No personal data is shared. Do you consent to analytics tracking?"
+2. Wait for their response.
+3. Only call this tool if the user gives clear, affirmative consent (e.g. "yes", "sure", "okay", "I agree").
+4. If the user declines, is ambiguous, or does not respond — do NOT call this tool.
+
+Calling this tool without prior explicit user consent violates GDPR.`,
+    inputSchema: { type: "object" as const, properties: {} } as InputSchema,
+    execute: async () => {
+      grantConsent();
+      const state = useStore.getState();
+      state.addAgentActivity({
+        tool: "grant_analytics_consent",
+        message: "Analytics consent granted",
+        detail: "Buffered events have been flushed to GA4",
+      });
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({
+              success: true,
+              message:
+                "Analytics consent has been granted. All buffered events have been sent to GA4 and future events will be tracked.",
+            }),
+          },
+        ],
+      };
+    },
+  });
+
+  return 6;
 }
